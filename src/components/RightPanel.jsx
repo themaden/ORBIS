@@ -7,9 +7,9 @@ function polar(cx, cy, r, t) {
 function arc(cx, cy, r, t0, t1) {
   const [x1, y1] = polar(cx, cy, r, t0);
   const [x2, y2] = polar(cx, cy, r, t1);
-  const large = t1 - t0 > 0.5 ? 1 : 0;
-  // sweep = 1 draws clockwise (over the top) for our orientation
-  return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
+  // half-circle gauge: sweep is always <= 180deg, so large-arc-flag is always 0
+  // sweep-flag = 1 draws the arc over the top for our orientation
+  return `M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`;
 }
 
 function Gauge({ value = 75 }) {
