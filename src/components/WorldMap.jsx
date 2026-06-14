@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   geoOrthographic,
   geoPath,
@@ -14,24 +14,94 @@ const R = SIZE / 2 - 18;
 
 const IST = [28.97, 41.01];
 
-const destinations = [
-  [-74.0, 40.7], [-87.6, 41.9], [-95.4, 29.8], [-118.2, 34.0],
-  [-79.4, 43.7], [-99.1, 19.4], [-58.4, -34.6], [-46.6, -23.5],
-  [-70.6, -33.4], [-77.0, -12.0], [-0.12, 51.5], [2.35, 48.85],
-  [13.4, 52.5], [12.5, 41.9], [-3.7, 40.4], [4.9, 52.4],
-  [37.6, 55.7], [30.5, 50.4], [23.7, 38.0], [31.2, 30.0],
-  [3.4, 6.5], [18.4, -33.9], [36.8, -1.3], [55.3, 25.2],
-  [46.7, 24.7], [51.4, 35.7], [77.2, 28.6], [72.9, 19.1],
-  [116.4, 39.9], [121.5, 31.2], [139.7, 35.7], [126.9, 37.6],
-  [103.8, 1.35], [100.5, 13.7], [106.8, -6.2], [151.2, -33.9],
-  [174.8, -36.8],
+// All country capitals: [lon, lat, name]
+const capitals = [
+  [32.85, 39.93, "Ankara"], [13.40, 52.52, "Berlin"], [2.35, 48.85, "Paris"],
+  [-0.13, 51.51, "Londra"], [-3.70, 40.42, "Madrid"], [12.50, 41.90, "Roma"],
+  [-9.14, 38.72, "Lizbon"], [-6.26, 53.35, "Dublin"], [4.90, 52.37, "Amsterdam"],
+  [4.35, 50.85, "Brüksel"], [7.45, 46.95, "Bern"], [16.37, 48.21, "Viyana"],
+  [14.42, 50.09, "Prag"], [21.01, 52.23, "Varşova"], [19.04, 47.50, "Budapeşte"],
+  [26.10, 44.43, "Bükreş"], [23.32, 42.70, "Sofya"], [23.73, 37.98, "Atina"],
+  [20.46, 44.82, "Belgrad"], [15.98, 45.81, "Zagreb"], [18.41, 43.85, "Saraybosna"],
+  [21.43, 42.00, "Üsküp"], [19.82, 41.33, "Tiran"], [19.26, 42.44, "Podgorica"],
+  [21.17, 42.67, "Priştine"], [14.51, 46.06, "Ljubljana"], [17.11, 48.15, "Bratislava"],
+  [30.52, 50.45, "Kiev"], [27.57, 53.90, "Minsk"], [37.62, 55.75, "Moskova"],
+  [28.86, 47.01, "Kişinev"], [25.28, 54.69, "Vilnius"], [24.11, 56.95, "Riga"],
+  [24.75, 59.44, "Tallinn"], [24.94, 60.17, "Helsinki"], [18.07, 59.33, "Stockholm"],
+  [10.75, 59.91, "Oslo"], [12.57, 55.68, "Kopenhag"], [-21.94, 64.15, "Reykjavik"],
+  [6.13, 49.61, "Lüksemburg"], [14.51, 35.90, "Valletta"], [33.36, 35.17, "Lefkoşa"],
+  [51.39, 35.69, "Tahran"], [44.36, 33.31, "Bağdat"], [46.72, 24.69, "Riyad"],
+  [44.21, 15.35, "Sana"], [58.41, 23.59, "Maskat"], [54.37, 24.45, "Abu Dabi"],
+  [51.53, 25.29, "Doha"], [50.58, 26.23, "Manama"], [47.98, 29.38, "Kuveyt"],
+  [35.93, 31.95, "Amman"], [36.29, 33.51, "Şam"], [35.50, 33.89, "Beyrut"],
+  [35.21, 31.77, "Kudüs"], [44.83, 41.72, "Tiflis"], [44.51, 40.18, "Erivan"],
+  [49.87, 40.41, "Bakü"], [71.43, 51.13, "Astana"], [69.24, 41.30, "Taşkent"],
+  [58.38, 37.95, "Aşkabat"], [68.78, 38.54, "Duşanbe"], [74.59, 42.87, "Bişkek"],
+  [69.18, 34.53, "Kabil"], [73.06, 33.69, "İslamabad"], [77.21, 28.61, "Yeni Delhi"],
+  [85.32, 27.71, "Katmandu"], [89.64, 27.47, "Timphu"], [90.41, 23.81, "Dakka"],
+  [79.86, 6.93, "Kolombo"], [73.51, 4.18, "Male"], [96.13, 19.76, "Naypyidaw"],
+  [100.50, 13.75, "Bangkok"], [102.60, 17.97, "Vientiane"], [104.92, 11.56, "Phnom Penh"],
+  [105.83, 21.03, "Hanoi"], [101.69, 3.14, "Kuala Lumpur"], [103.82, 1.35, "Singapur"],
+  [106.85, -6.21, "Cakarta"], [120.98, 14.60, "Manila"], [116.40, 39.90, "Pekin"],
+  [106.92, 47.92, "Ulanbator"], [125.76, 39.04, "Pyongyang"], [126.98, 37.57, "Seul"],
+  [139.69, 35.69, "Tokyo"], [121.56, 25.03, "Taipei"], [31.24, 30.04, "Kahire"],
+  [13.19, 32.89, "Trablus"], [10.18, 36.81, "Tunus"], [3.06, 36.75, "Cezayir"],
+  [-6.84, 34.02, "Rabat"], [-15.98, 18.08, "Nuakşot"], [-17.45, 14.69, "Dakar"],
+  [-8.00, 12.65, "Bamako"], [2.11, 13.51, "Niamey"], [15.04, 12.11, "Encemine"],
+  [32.53, 15.50, "Hartum"], [38.93, 15.32, "Asmara"], [38.74, 9.03, "Addis Ababa"],
+  [43.15, 11.59, "Cibuti"], [45.34, 2.04, "Mogadişu"], [36.82, -1.29, "Nairobi"],
+  [32.58, 0.35, "Kampala"], [30.06, -1.94, "Kigali"], [29.36, -3.38, "Bujumbura"],
+  [35.74, -6.16, "Dodoma"], [28.32, -15.39, "Lusaka"], [31.05, -17.83, "Harare"],
+  [33.79, -13.96, "Lilongwe"], [32.59, -25.97, "Maputo"], [47.52, -18.88, "Antananarivo"],
+  [25.92, -24.65, "Gaborone"], [17.08, -22.56, "Windhoek"], [28.19, -25.75, "Pretoria"],
+  [27.48, -29.31, "Maseru"], [31.13, -26.32, "Mbabane"], [13.23, -8.84, "Luanda"],
+  [15.27, -4.44, "Kinşasa"], [15.28, -4.27, "Brazzavil"], [9.45, 0.39, "Librevil"],
+  [11.52, 3.85, "Yaounde"], [18.56, 4.39, "Bangui"], [8.78, 3.75, "Malabo"],
+  [7.49, 9.06, "Abuja"], [2.63, 6.50, "Porto-Novo"], [1.22, 6.13, "Lome"],
+  [-0.19, 5.60, "Akra"], [-1.53, 12.37, "Vagadugu"], [-5.27, 6.82, "Yamusukro"],
+  [-10.80, 6.30, "Monrovia"], [-13.23, 8.48, "Freetown"], [-13.71, 9.64, "Konakri"],
+  [-15.18, 11.86, "Bissau"], [-16.58, 13.45, "Banjul"], [-23.51, 14.93, "Praia"],
+  [-77.04, 38.91, "Washington"], [-75.70, 45.42, "Ottawa"], [-99.13, 19.43, "Meksiko"],
+  [-90.51, 14.63, "Guatemala"], [-89.19, 13.69, "San Salvador"], [-87.21, 14.07, "Tegucigalpa"],
+  [-86.25, 12.11, "Managua"], [-84.09, 9.93, "San Jose"], [-79.52, 8.98, "Panama"],
+  [-82.38, 23.11, "Havana"], [-77.34, 25.06, "Nassau"], [-76.79, 18.01, "Kingston"],
+  [-72.34, 18.55, "Port-au-Prince"], [-69.93, 18.49, "Santo Domingo"], [-74.07, 4.71, "Bogota"],
+  [-66.90, 10.49, "Karakas"], [-78.47, -0.18, "Quito"], [-77.04, -12.05, "Lima"],
+  [-68.15, -16.50, "La Paz"], [-47.93, -15.78, "Brasilia"], [-57.58, -25.30, "Asuncion"],
+  [-56.16, -34.90, "Montevideo"], [-58.38, -34.60, "Buenos Aires"], [-70.65, -33.46, "Santiago"],
+  [-58.16, 6.80, "Georgetown"], [-55.20, 5.87, "Paramaribo"], [149.13, -35.28, "Canberra"],
+  [174.78, -41.29, "Wellington"], [147.18, -9.44, "Port Moresby"], [178.44, -18.12, "Suva"],
+  [-171.76, -13.83, "Apia"], [10.45, 51.17, "Frankfurt"], [-21.83, 64.13, "Keflavik"],
 ];
+
+// Pseudo-random flightradar-style planes derived from capitals (stable)
+function makePlanes() {
+  let seed = 1337;
+  const rnd = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  };
+  const planes = [];
+  for (let i = 0; i < 55; i++) {
+    const base = capitals[Math.floor(rnd() * capitals.length)];
+    planes.push([
+      base[0] + (rnd() - 0.5) * 18,
+      base[1] + (rnd() - 0.5) * 14,
+      Math.floor(rnd() * 360), // heading
+    ]);
+  }
+  return planes;
+}
+
+const PLANE =
+  "M0,-9 L1.4,-3 L8,1 L8,2.6 L1.4,1.6 L1,7 L3,8.6 L3,9.6 L0,8.6 L-3,9.6 L-3,8.6 L-1,7 L-1.4,1.6 L-8,2.6 L-8,1 L-1.4,-3 Z";
 
 export default function WorldMap() {
   const [land, setLand] = useState([]);
   const [lambda, setLambda] = useState(20);
   const dragging = useRef(false);
   const last = useRef(0);
+  const planes = useMemo(makePlanes, []);
 
   useEffect(() => {
     fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
@@ -40,16 +110,13 @@ export default function WorldMap() {
       .catch(() => {});
   }, []);
 
-  // auto-rotate
   useEffect(() => {
     let raf;
     let prev = performance.now();
     const tick = (now) => {
       const dt = now - prev;
       prev = now;
-      if (!dragging.current) {
-        setLambda((l) => (l + dt * 0.006) % 360);
-      }
+      if (!dragging.current) setLambda((l) => (l + dt * 0.005) % 360);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -57,7 +124,7 @@ export default function WorldMap() {
   }, []);
 
   const rotate = [-lambda, -18, 0];
-  const center = [lambda, 18]; // point facing the viewer (for visibility test)
+  const center = [lambda, 18];
 
   const projection = geoOrthographic()
     .scale(R)
@@ -68,14 +135,18 @@ export default function WorldMap() {
 
   const visible = (c) => geoDistance(c, center) < Math.PI / 2 - 0.02;
 
-  const routeFeatures = destinations
+  // a handful of red routes from IST to major hubs
+  const majorRoutes = [
+    [-74, 40.7], [-0.13, 51.5], [139.69, 35.69], [55.3, 25.2],
+    [103.82, 1.35], [116.4, 39.9], [-43.2, -22.9], [37.62, 55.75],
+    [31.24, 30.04], [77.21, 28.61], [-99.13, 19.43], [151.2, -33.9],
+  ]
     .filter((d) => visible(d) || visible(IST))
     .map((d) => ({ type: "LineString", coordinates: [IST, d] }));
 
   const istPt = projection(IST);
   const istVisible = visible(IST);
 
-  // drag to spin
   const onDown = (e) => {
     dragging.current = true;
     last.current = e.clientX;
@@ -115,13 +186,9 @@ export default function WorldMap() {
           </radialGradient>
         </defs>
 
-        {/* atmosphere glow */}
         <circle cx={CX} cy={CY} r={R + 12} fill="url(#glow)" />
-
-        {/* ocean sphere */}
         <circle cx={CX} cy={CY} r={R} fill="url(#ocean)" />
 
-        {/* graticule */}
         <path
           d={path(geoGraticule10())}
           fill="none"
@@ -129,7 +196,6 @@ export default function WorldMap() {
           strokeWidth="0.5"
         />
 
-        {/* land */}
         {land.map((g, i) => (
           <path
             key={i}
@@ -140,28 +206,52 @@ export default function WorldMap() {
           />
         ))}
 
-        {/* flight routes (great circles, auto-clipped to near side) */}
-        {routeFeatures.map((f, i) => (
+        {/* major flight routes */}
+        {majorRoutes.map((f, i) => (
           <path
             key={`r-${i}`}
             d={path(f)}
             fill="none"
             stroke="#E30A17"
             strokeWidth="1"
-            strokeOpacity="0.6"
+            strokeOpacity="0.55"
             strokeLinecap="round"
           />
         ))}
 
-        {/* destination markers */}
-        {destinations.map((d, i) => {
-          if (!visible(d)) return null;
-          const p = projection(d);
+        {/* capital markers (pins) */}
+        {capitals.map((c, i) => {
+          if (!visible(c)) return null;
+          const p = projection(c);
           if (!p) return null;
           return (
-            <g key={`m-${i}`}>
-              <circle cx={p[0]} cy={p[1]} r="4.5" fill="#E30A17" opacity="0.2" />
-              <circle cx={p[0]} cy={p[1]} r="2.2" fill="#ff4d57" />
+            <g key={`c-${i}`}>
+              <title>{c[2]}</title>
+              <circle cx={p[0]} cy={p[1]} r="3.4" fill="#38bdf8" opacity="0.18" />
+              <circle
+                cx={p[0]}
+                cy={p[1]}
+                r="1.7"
+                fill="#7dd3fc"
+                stroke="#0b1220"
+                strokeWidth="0.4"
+              />
+            </g>
+          );
+        })}
+
+        {/* flightradar-style planes */}
+        {planes.map((pl, i) => {
+          const coord = [pl[0], pl[1]];
+          if (!visible(coord)) return null;
+          const p = projection(coord);
+          if (!p) return null;
+          return (
+            <g
+              key={`p-${i}`}
+              transform={`translate(${p[0]},${p[1]}) rotate(${pl[2]}) scale(0.8)`}
+            >
+              <path d={PLANE} fill="#f5c518" stroke="#3a2c00" strokeWidth="0.6" />
             </g>
           );
         })}
@@ -173,14 +263,19 @@ export default function WorldMap() {
             <circle
               cx={istPt[0]}
               cy={istPt[1]}
-              r="15"
-              fill="rgba(255,255,255,0.08)"
-              stroke="rgba(255,255,255,0.55)"
+              r="13"
+              fill="rgba(227,10,23,0.18)"
+              stroke="rgba(255,255,255,0.6)"
               strokeWidth="1"
             />
+            <g
+              transform={`translate(${istPt[0]},${istPt[1]}) rotate(45) scale(0.95)`}
+            >
+              <path d={PLANE} fill="#fff" />
+            </g>
             <text
               x={istPt[0]}
-              y={istPt[1] - 24}
+              y={istPt[1] - 22}
               textAnchor="middle"
               fontSize="11"
               fontWeight="600"
@@ -190,17 +285,16 @@ export default function WorldMap() {
             </text>
             <text
               x={istPt[0]}
-              y={istPt[1] + 30}
+              y={istPt[1] + 28}
               textAnchor="middle"
               fontSize="10"
-              fill="rgba(255,255,255,0.7)"
+              fill="rgba(255,255,255,0.75)"
             >
               (IST)
             </text>
           </g>
         )}
 
-        {/* rim */}
         <circle
           cx={CX}
           cy={CY}
