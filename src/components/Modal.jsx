@@ -1,10 +1,11 @@
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 export default function Modal({ open, onClose, title, children }) {
   if (!open) return null;
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
@@ -17,9 +18,10 @@ export default function Modal({ open, onClose, title, children }) {
         >
           <X size={18} />
         </button>
-        <h3 className="font-semibold text-lg mb-4">{title}</h3>
+        {title && <h3 className="font-semibold text-lg mb-4">{title}</h3>}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,110 +1,290 @@
-import { Card } from "../components/Card";
-import { Send, Phone, Mail, MessageSquare } from "lucide-react";
 import { useState } from "react";
+import {
+  Hash,
+  Volume2,
+  Plus,
+  Search,
+  Bell,
+  Pin,
+  Users as UsersIcon,
+  Send,
+  Gift,
+  Smile,
+  PlusCircle,
+  Mic,
+  Headphones,
+  Settings as Cog,
+} from "lucide-react";
 
-const channels = [
-  { id: 1, name: "Operasyon Merkezi", last: "TK1985 gecikme protokolü etkin.", unread: 3, time: "şimdi" },
-  { id: 2, name: "Pilot Brifing", last: "Yarınki nöbet listesi paylaşıldı.", unread: 0, time: "12 dk" },
-  { id: 3, name: "Kabin Ekibi - LH", last: "Londra otel transferi onaylandı.", unread: 1, time: "1 saat" },
-  { id: 4, name: "Yer Hizmetleri IST", last: "Kapı B14 boşaltıldı.", unread: 0, time: "2 saat" },
-  { id: 5, name: "Acil Durum Hattı", last: "Sistem durumu: Normal.", unread: 0, time: "3 saat" },
+const categories = [
+  {
+    name: "OPERASYON",
+    channels: [
+      { id: "genel", name: "genel", type: "text" },
+      { id: "anlik-durum", name: "anlık-durum", type: "text", unread: true },
+      { id: "kriz-masasi", name: "kriz-masası", type: "text", badge: 3 },
+      { id: "duyurular", name: "duyurular", type: "text" },
+    ],
+  },
+  {
+    name: "EKİPLER",
+    channels: [
+      { id: "pilotlar", name: "pilotlar", type: "text" },
+      { id: "kabin", name: "kabin-ekibi", type: "text" },
+      { id: "yer-hizmet", name: "yer-hizmetleri", type: "text" },
+    ],
+  },
+  {
+    name: "SESLİ KANALLAR",
+    channels: [
+      { id: "kule", name: "Kule Hattı", type: "voice", count: 4 },
+      { id: "brifing", name: "Brifing Odası", type: "voice", count: 0 },
+    ],
+  },
 ];
 
-const messages = [
-  { from: "Op. Merkezi", text: "TK1985 için Frankfurt aktarması revize ediliyor.", me: false, time: "14:02" },
-  { from: "Sen", text: "Onaylandı. Yeni kapı bilgilerini iletin.", me: true, time: "14:04" },
-  { from: "Op. Merkezi", text: "Kapı A22 olarak güncellendi. Yolcular bilgilendirildi.", me: false, time: "14:06" },
-  { from: "Sen", text: "Teşekkürler, mürettebat haberdar mı?", me: true, time: "14:07" },
-  { from: "Op. Merkezi", text: "Evet, kaptan brifingi tamamlandı.", me: false, time: "14:08" },
+const roleColor = {
+  Komuta: "#E30A17",
+  Pilot: "#f0b429",
+  Kabin: "#38bdf8",
+  Yer: "#34d399",
+};
+
+const messagesByChannel = {
+  "anlik-durum": [
+    { user: "Op. Merkezi", role: "Komuta", time: "14:02", text: "TK1985 için Frankfurt aktarması revize ediliyor. Tüm birimler hazır olsun." },
+    { user: "Mehmet Demir", role: "Pilot", time: "14:04", text: "Anlaşıldı, yeni kapı bilgisini bekliyoruz." },
+    { user: "Op. Merkezi", role: "Komuta", time: "14:06", text: "Kapı A22 olarak güncellendi. Yolcular bilgilendirildi ✅" },
+    { user: "Zeynep Kaya", role: "Kabin", time: "14:07", text: "Kabin ekibi brifinge hazır. Catering yüklemesi tamam." },
+    { user: "Ali Yıldız", role: "Yer", time: "14:08", text: "A22 kapısı boşaltıldı, körük bağlandı." },
+    { user: "Op. Merkezi", role: "Komuta", time: "14:09", text: "Harika. Kalkış slotu 14:35 olarak onaylandı." },
+  ],
+  genel: [
+    { user: "Zeynep Kaya", role: "Kabin", time: "13:40", text: "Günaydın ekip! Bugün yoğun bir gün olacak gibi 🛫" },
+    { user: "Mehmet Demir", role: "Pilot", time: "13:42", text: "Günaydın, hava raporları ellerine ulaştı mı?" },
+    { user: "Op. Merkezi", role: "Komuta", time: "13:45", text: "Evet, Avrupa rotasında fırtına bekleniyor. Detaylar #kriz-masası kanalında." },
+  ],
+  "kriz-masasi": [
+    { user: "Op. Merkezi", role: "Komuta", time: "12:10", text: "⚠️ Londra üzerinde gelen fırtına nedeniyle 50 otel odası ön rezervasyonu yapıldı." },
+    { user: "Ali Yıldız", role: "Yer", time: "12:14", text: "Transfer araçları da ayarlandı, 6 adet hazır." },
+  ],
+};
+
+function Avatar({ name, role }) {
+  const init = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  return (
+    <div
+      className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+      style={{ background: (roleColor[role] || "#555") + "33", color: roleColor[role] || "#ddd" }}
+    >
+      {init}
+    </div>
+  );
+}
+
+const members = [
+  { name: "Op. Merkezi", role: "Komuta", status: "online" },
+  { name: "Mehmet Demir", role: "Pilot", status: "online" },
+  { name: "Selin Arslan", role: "Pilot", status: "online" },
+  { name: "Zeynep Kaya", role: "Kabin", status: "online" },
+  { name: "Ali Yıldız", role: "Yer", status: "idle" },
+  { name: "Burak Şahin", role: "Yer", status: "offline" },
+  { name: "Elif Çetin", role: "Kabin", status: "offline" },
 ];
+
+const statusColor = { online: "#34d399", idle: "#f0b429", offline: "#6b7280" };
 
 export default function Communications() {
-  const [active, setActive] = useState(1);
+  const [active, setActive] = useState("anlik-durum");
   const [text, setText] = useState("");
-  return (
-    <div className="flex-1 p-6 grid grid-cols-[280px_1fr_280px] gap-4 overflow-hidden">
-      <Card title="Kanallar" className="overflow-y-auto">
-        <ul className="space-y-1.5">
-          {channels.map((c) => (
-            <li key={c.id}>
-              <button
-                onClick={() => setActive(c.id)}
-                className={`w-full text-left p-3 rounded-xl border ${
-                  active === c.id
-                    ? "bg-white/10 border-white/10"
-                    : "border-transparent hover:bg-white/5"
-                }`}
-              >
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-sm">{c.name}</span>
-                  {c.unread > 0 && (
-                    <span className="bg-thy text-[10px] rounded-full px-1.5">
-                      {c.unread}
-                    </span>
-                  )}
-                </div>
-                <div className="text-xs text-white/55 truncate mt-0.5">
-                  {c.last}
-                </div>
-                <div className="text-[10px] text-white/40 mt-1">{c.time}</div>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </Card>
 
-      <Card className="flex flex-col overflow-hidden">
-        <div className="flex-1 space-y-3 overflow-y-auto pr-2">
-          {messages.map((m, i) => (
-            <div
-              key={i}
-              className={`flex ${m.me ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[70%] rounded-2xl px-4 py-2.5 text-sm ${
-                  m.me
-                    ? "bg-thy text-white"
-                    : "bg-white/10 text-white/90"
-                }`}
-              >
-                {!m.me && (
-                  <div className="text-[10px] text-white/60 mb-0.5">{m.from}</div>
-                )}
-                {m.text}
-                <div className="text-[10px] opacity-60 mt-1 text-right">{m.time}</div>
+  const activeName =
+    categories.flatMap((c) => c.channels).find((c) => c.id === active)?.name ||
+    "genel";
+  const msgs = messagesByChannel[active] || [];
+  const online = members.filter((m) => m.status !== "offline");
+  const offline = members.filter((m) => m.status === "offline");
+
+  return (
+    <div className="flex-1 px-6 pb-6 overflow-hidden">
+      <div className="h-full glass rounded-2xl overflow-hidden flex">
+        {/* Channels column */}
+        <div className="w-[230px] bg-black/25 flex flex-col border-r border-white/5">
+          <div className="px-4 h-14 flex items-center justify-between border-b border-white/5 shadow">
+            <span className="font-semibold text-sm">ORBIS Komuta</span>
+            <Bell size={15} className="text-white/50" />
+          </div>
+          <div className="flex-1 overflow-y-auto py-3 px-2 space-y-4">
+            {categories.map((cat) => (
+              <div key={cat.name}>
+                <div className="px-2 mb-1 text-[10px] font-semibold tracking-wider text-white/40 flex items-center justify-between">
+                  {cat.name}
+                  <Plus size={12} className="cursor-pointer hover:text-white" />
+                </div>
+                {cat.channels.map((ch) => {
+                  const sel = ch.id === active;
+                  const Icon = ch.type === "voice" ? Volume2 : Hash;
+                  return (
+                    <button
+                      key={ch.id}
+                      onClick={() => ch.type === "text" && setActive(ch.id)}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition ${
+                        sel
+                          ? "bg-white/10 text-white"
+                          : "text-white/55 hover:bg-white/5 hover:text-white/80"
+                      }`}
+                    >
+                      <Icon size={16} className="shrink-0 opacity-70" />
+                      <span className={`truncate ${ch.unread && !sel ? "text-white font-medium" : ""}`}>
+                        {ch.name}
+                      </span>
+                      {ch.badge && (
+                        <span className="ml-auto bg-thy text-[10px] rounded-full px-1.5 leading-tight py-0.5">
+                          {ch.badge}
+                        </span>
+                      )}
+                      {ch.type === "voice" && ch.count > 0 && (
+                        <span className="ml-auto text-[10px] text-white/40">
+                          {ch.count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          {/* user bar */}
+          <div className="h-14 bg-black/40 px-3 flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-thy flex items-center justify-center text-[11px] font-bold">
+              AY
+            </div>
+            <div className="leading-tight flex-1 min-w-0">
+              <div className="text-xs font-medium truncate">Ahmet Yılmaz</div>
+              <div className="text-[10px] text-emerald-400">çevrimiçi</div>
+            </div>
+            <Mic size={15} className="text-white/50" />
+            <Headphones size={15} className="text-white/50" />
+            <Cog size={15} className="text-white/50" />
+          </div>
+        </div>
+
+        {/* Chat column */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="h-14 px-4 flex items-center gap-3 border-b border-white/5">
+            <Hash size={18} className="text-white/40" />
+            <span className="font-semibold text-sm">{activeName}</span>
+            <div className="w-px h-5 bg-white/10 mx-1" />
+            <span className="text-xs text-white/45 truncate">
+              Operasyon ekibi gerçek zamanlı koordinasyon kanalı
+            </span>
+            <div className="ml-auto flex items-center gap-3 text-white/45">
+              <Pin size={16} className="hover:text-white cursor-pointer" />
+              <UsersIcon size={16} className="hover:text-white cursor-pointer" />
+              <div className="flex items-center gap-1.5 bg-black/30 rounded px-2 py-1">
+                <Search size={13} />
+                <input
+                  placeholder="Ara"
+                  className="bg-transparent outline-none text-xs w-20"
+                />
               </div>
             </div>
-          ))}
-        </div>
-        <div className="mt-3 flex items-center gap-2 bg-white/5 rounded-full px-4 py-2 border border-white/10">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Mesaj yaz..."
-            className="flex-1 bg-transparent outline-none text-sm"
-          />
-          <button className="bg-thy rounded-full p-2">
-            <Send size={14} />
-          </button>
-        </div>
-      </Card>
+          </div>
 
-      <Card title="Hızlı İletişim">
-        <ul className="space-y-3 text-sm">
-          {[
-            { icon: Phone, label: "Acil Durum Hattı", v: "+90 212 444 0 849" },
-            { icon: Mail, label: "Operasyon E-posta", v: "ops@thy.com" },
-            { icon: MessageSquare, label: "Pilot Hattı", v: "INT-2200" },
-          ].map(({ icon: Icon, label, v }) => (
-            <li key={label} className="bg-white/5 rounded-xl p-3 border border-white/10">
-              <div className="flex items-center gap-2 text-white/70 text-xs">
-                <Icon size={13} className="text-thy" /> {label}
+          {/* messages */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+            <div className="text-center">
+              <div className="inline-flex w-14 h-14 rounded-full bg-thy/20 items-center justify-center mb-2">
+                <Hash size={26} className="text-thy" />
               </div>
-              <div className="mt-1 font-medium">{v}</div>
-            </li>
+              <div className="font-bold">#{activeName} kanalına hoş geldin</div>
+              <div className="text-xs text-white/45">
+                Bu kanalın en başı. Mesajlar gerçek zamanlı görüntülenir.
+              </div>
+            </div>
+            {msgs.map((m, i) => (
+              <div key={i} className="flex gap-3 hover:bg-white/[0.03] -mx-2 px-2 py-1 rounded-lg">
+                <Avatar name={m.user} role={m.role} />
+                <div className="min-w-0">
+                  <div className="flex items-baseline gap-2">
+                    <span
+                      className="font-semibold text-sm"
+                      style={{ color: roleColor[m.role] }}
+                    >
+                      {m.user}
+                    </span>
+                    <span className="text-[10px] text-white/35">{m.time}</span>
+                  </div>
+                  <div className="text-sm text-white/85 leading-relaxed">
+                    {m.text}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* input */}
+          <div className="px-4 pb-4">
+            <div className="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
+              <PlusCircle size={20} className="text-white/45" />
+              <input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={`#${activeName} kanalına mesaj gönder`}
+                className="flex-1 bg-transparent outline-none text-sm"
+              />
+              <Gift size={18} className="text-white/45" />
+              <Smile size={18} className="text-white/45" />
+              <button className="bg-thy rounded-lg p-1.5">
+                <Send size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Members column */}
+        <div className="w-[210px] bg-black/25 border-l border-white/5 overflow-y-auto p-3">
+          <div className="text-[10px] font-semibold tracking-wider text-white/40 px-2 mb-2">
+            ÇEVRİMİÇİ — {online.length}
+          </div>
+          {online.map((m) => (
+            <MemberRow key={m.name} m={m} />
           ))}
-        </ul>
-      </Card>
+          <div className="text-[10px] font-semibold tracking-wider text-white/40 px-2 mb-2 mt-4">
+            ÇEVRİMDIŞI — {offline.length}
+          </div>
+          {offline.map((m) => (
+            <MemberRow key={m.name} m={m} dim />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MemberRow({ m, dim }) {
+  return (
+    <div
+      className={`flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-white/5 ${
+        dim ? "opacity-45" : ""
+      }`}
+    >
+      <div className="relative">
+        <Avatar name={m.name} role={m.role} />
+        <span
+          className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0e0e12]"
+          style={{ background: statusColor[m.status] }}
+        />
+      </div>
+      <div className="min-w-0">
+        <div
+          className="text-sm font-medium truncate"
+          style={{ color: roleColor[m.role] }}
+        >
+          {m.name}
+        </div>
+        <div className="text-[10px] text-white/40">{m.role}</div>
+      </div>
     </div>
   );
 }

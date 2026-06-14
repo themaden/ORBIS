@@ -10,6 +10,9 @@ import {
   Phone,
   Mail,
   LogOut,
+  Lock,
+  User,
+  ShieldCheck,
 } from "lucide-react";
 import Modal from "./Modal";
 
@@ -22,14 +25,30 @@ const items = [
 ];
 
 export default function Sidebar({ page, setPage }) {
-  const [modal, setModal] = useState(null); // "support" | "profile" | null
+  const [modal, setModal] = useState(null); // "support" | "login" | null
+  const [user, setUser] = useState("Ahmet Yılmaz");
+  const [sicil, setSicil] = useState("THY-04821");
+  const [pw, setPw] = useState("");
+
+  const initials = user
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (!sicil.trim()) return;
+    setModal(null);
+    setPw("");
+  };
 
   return (
     <aside className="w-[260px] h-full glass flex flex-col p-5 z-10">
       <div className="flex items-center gap-3 mb-8 px-1">
         <svg viewBox="0 0 64 64" className="w-10 h-10">
           <circle cx="32" cy="32" r="30" fill="#E30A17" />
-          {/* Turkish Airlines wild goose */}
           <path
             fill="#d6d6d6"
             d="M14 42 C10 34 14 26 22 24 C20 20 22 16 27 15 C28 19 27 22 25 25 C34 23 45 25 54 20 C50 30 42 36 33 37 C39 39 45 39 50 37 C43 44 32 47 23 45 C18 44 15 44 14 42 Z"
@@ -84,15 +103,15 @@ export default function Sidebar({ page, setPage }) {
           <span>Destek</span>
         </button>
         <button
-          onClick={() => setModal("profile")}
+          onClick={() => setModal("login")}
           className="flex items-center gap-3 text-white/80 text-sm hover:text-white transition"
         >
-          <UserCircle2 size={20} />
+          <span className="w-7 h-7 rounded-full bg-thy flex items-center justify-center text-[11px] font-bold shrink-0">
+            {initials}
+          </span>
           <div className="leading-tight text-left">
             <div className="text-[13.5px] font-medium">Profilim</div>
-            <div className="text-[11px] text-white/50">
-              Passenger: Ahmet Yılmaz
-            </div>
+            <div className="text-[11px] text-white/50">Passenger: {user}</div>
           </div>
         </button>
       </div>
@@ -128,43 +147,77 @@ export default function Sidebar({ page, setPage }) {
         </ul>
       </Modal>
 
-      {/* Profil modal */}
-      <Modal
-        open={modal === "profile"}
-        onClose={() => setModal(null)}
-        title="Profilim"
-      >
-        <div className="flex items-center gap-4 mb-5">
-          <div className="w-16 h-16 rounded-full bg-thy flex items-center justify-center text-2xl font-bold">
-            AY
+      {/* Personel Giriş modal */}
+      <Modal open={modal === "login"} onClose={() => setModal(null)}>
+        <div className="flex flex-col items-center text-center mb-6">
+          <svg viewBox="0 0 64 64" className="w-14 h-14 mb-3">
+            <circle cx="32" cy="32" r="30" fill="#E30A17" />
+            <path
+              fill="#d6d6d6"
+              d="M14 42 C10 34 14 26 22 24 C20 20 22 16 27 15 C28 19 27 22 25 25 C34 23 45 25 54 20 C50 30 42 36 33 37 C39 39 45 39 50 37 C43 44 32 47 23 45 C18 44 15 44 14 42 Z"
+            />
+          </svg>
+          <div className="text-lg font-bold tracking-[0.15em]">
+            ORB<span className="text-thy">IS</span>
           </div>
+          <div className="text-xs text-white/50">Personel Girişi</div>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-3">
           <div>
-            <div className="font-semibold text-lg">Ahmet Yılmaz</div>
-            <div className="text-xs text-white/60">Operasyon Yöneticisi</div>
-            <div className="text-xs text-white/40 mt-0.5">maden3438@gmail.com</div>
+            <label className="text-xs text-white/55 mb-1 block">Ad Soyad</label>
+            <div className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2.5 border border-white/10 focus-within:border-thy transition">
+              <User size={15} className="text-white/50" />
+              <input
+                value={user}
+                onChange={(e) => setUser(e.target.value)}
+                className="bg-transparent outline-none text-sm flex-1"
+                placeholder="Ad Soyad"
+              />
+            </div>
           </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-            <div className="text-xs text-white/55">Sicil No</div>
-            <div className="font-medium">THY-04821</div>
+
+          <div>
+            <label className="text-xs text-white/55 mb-1 block">Sicil No</label>
+            <div className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2.5 border border-white/10 focus-within:border-thy transition">
+              <ShieldCheck size={15} className="text-white/50" />
+              <input
+                value={sicil}
+                onChange={(e) => setSicil(e.target.value)}
+                className="bg-transparent outline-none text-sm flex-1"
+                placeholder="THY-00000"
+              />
+            </div>
           </div>
-          <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-            <div className="text-xs text-white/55">Üs</div>
-            <div className="font-medium">İstanbul (IST)</div>
+
+          <div>
+            <label className="text-xs text-white/55 mb-1 block">Şifre</label>
+            <div className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2.5 border border-white/10 focus-within:border-thy transition">
+              <Lock size={15} className="text-white/50" />
+              <input
+                type="password"
+                value={pw}
+                onChange={(e) => setPw(e.target.value)}
+                className="bg-transparent outline-none text-sm flex-1"
+                placeholder="••••••••"
+              />
+            </div>
           </div>
-          <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-            <div className="text-xs text-white/55">Yetki</div>
-            <div className="font-medium">Tam Erişim</div>
-          </div>
-          <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-            <div className="text-xs text-white/55">Vardiya</div>
-            <div className="font-medium">Gündüz</div>
-          </div>
-        </div>
-        <button className="w-full py-2.5 rounded-xl bg-thy hover:bg-red-600 transition text-sm font-medium flex items-center justify-center gap-2">
-          <LogOut size={15} /> Oturumu Kapat
-        </button>
+
+          <button
+            type="submit"
+            className="w-full py-2.5 rounded-xl bg-thy hover:bg-red-600 transition text-sm font-semibold mt-2"
+          >
+            Giriş Yap
+          </button>
+          <button
+            type="button"
+            onClick={() => setModal(null)}
+            className="w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 transition text-xs text-white/60 flex items-center justify-center gap-2"
+          >
+            <LogOut size={13} /> Oturumu Kapat
+          </button>
+        </form>
       </Modal>
     </aside>
   );
