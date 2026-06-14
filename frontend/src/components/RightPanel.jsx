@@ -1,29 +1,16 @@
 import { api } from "../api/client";
 import { useApi } from "../hooks/useApi";
 import { Skeleton, ErrorState } from "./Skeleton";
+import { polar, arcPath as arc, valueToRatio } from "../lib/gauge";
 
 const levelColor = (lvl) =>
   lvl === "Yüksek" ? "text-thy" : lvl === "Orta" ? "text-orange-400" : "text-emerald-400";
-
-function polar(cx, cy, r, t) {
-  // t: 0 = left (180°), 1 = right (0°), arc over the top
-  const a = Math.PI - t * Math.PI;
-  return [cx + r * Math.cos(a), cy - r * Math.sin(a)];
-}
-
-function arc(cx, cy, r, t0, t1) {
-  const [x1, y1] = polar(cx, cy, r, t0);
-  const [x2, y2] = polar(cx, cy, r, t1);
-  // half-circle gauge: sweep is always <= 180deg, so large-arc-flag is always 0
-  // sweep-flag = 1 draws the arc over the top for our orientation
-  return `M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`;
-}
 
 function Gauge({ value = 75 }) {
   const cx = 110;
   const cy = 110;
   const r = 78;
-  const v = value / 100;
+  const v = valueToRatio(value);
 
   const [nx, ny] = polar(cx, cy, r - 6, v);
 
