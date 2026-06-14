@@ -4,106 +4,87 @@
 
 **Turkish Airlines için yapay zeka destekli global operasyon komuta merkezi**
 
-Dönen 3B dünya küresi · Kriz tahmincisi · Kaynak yönetimi · Discord tarzı iletişim merkezi
+3B dünya küresi · Kriz tahmincisi · Kaynak yönetimi · Discord tarzı iletişim merkezi
 
-![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38BDF8?logo=tailwindcss&logoColor=white)
+![React](https://img.shields.io/badge/Frontend-React_19-61DAFB?logo=react&logoColor=white)
+![Node](https://img.shields.io/badge/Backend-Node_+_Express-339933?logo=nodedotjs&logoColor=white)
+![FastAPI](https://img.shields.io/badge/AI-Python_+_FastAPI-009688?logo=fastapi&logoColor=white)
 
 </div>
 
 ---
 
-## 📋 Hakkında
+## 🏗️ Mimari (Monorepo)
 
-ORBIS, bir havayolu operasyon merkezini simüle eden modern bir **front-end** gösterge panelidir.
-Gerçek zamanlı uçuş takibi, yapay zeka kriz tahmini ve ekip koordinasyonunu tek bir koyu
-temalı arayüzde birleştirir. Tüm veriler demo amaçlı statik (mock) verilerdir.
+Proje üç bağımsız servise ayrılmıştır; her biri kendi klasöründe, kendi
+bağımlılıkları ve README'si ile yaşar:
 
-## ✨ Özellikler
+```
+ORBIS/
+├── frontend/   → React 19 + Vite arayüzü (gösterge paneli)
+├── backend/    → Node.js + Express REST API (veri / ağ geçidi)
+└── ai/         → Python + FastAPI yapay zeka servisi (kriz tahmini)
+```
 
-- **🌍 3B Dünya Küresi** — `d3-geo` orthographic projeksiyonla gerçek dönen küre. Otomatik
-  döner, fareyle sürüklenebilir; ~190 ülke başkenti ve flightradar tarzı minik uçaklarla.
-  Rotalar great-circle (büyük daire) yayları olarak çizilir, yalnız görünen yarıkürede.
-- **🧠 Yapay Zeka Kriz Tahmincisi** — %75 Aksaklık Risk Endeksi göstergesi (SVG gauge),
-  tahmini gecikmeler ve yapay zeka önerileri.
-- **📊 Yapay Zeka Analizleri** — tahmin doğruluğu, aktif modeller, aylık gecikme grafiği.
-- **🛩️ Kaynak Yönetimi** — filo durumu tablosu, mürettebat ve kaynak tahsis çubukları.
-- **💬 İletişim Merkezi** — Discord tarzı arayüz: kategorili kanallar, rol renkli mesajlar,
-  çevrimiçi/çevrimdışı üye listesi, gerçek zamanlı mesaj gönderme.
-- **⚙️ Ayarlar** — localStorage'a kaydedilen tercihler.
-- **🔎 Canlı arama** — uçuş / yolcu / kaynak için filtreli öneri listesi.
-- **📱 Responsive & erişilebilir** — breakpoint'ler, klavye (Esc), `aria` etiketleri.
+### Veri akışı
 
-## 🛠️ Teknolojiler
+```
+┌────────────┐      REST       ┌────────────┐      REST       ┌────────────┐
+│  frontend  │ ───────────────▶│  backend   │ ───────────────▶│    ai      │
+│  (React)   │◀─────────────── │ (Express)  │◀─────────────── │ (FastAPI)  │
+└────────────┘   JSON / WS     └────────────┘   tahmin (JSON) └────────────┘
+   tarayıcı        :5173            API :4000                    ML :8000
+```
 
-| Katman | Araç |
-|--------|------|
-| Çatı | React 19 + Vite 8 |
-| Stil | Tailwind CSS 3 (glassmorphism, koyu kırmızı tema) |
-| Harita | d3-geo + topojson-client (world-atlas) |
-| İkonlar | lucide-react |
+- **frontend** kullanıcı arayüzünü sunar, `backend`'den veri çeker.
+- **backend** uçuş/filo/kaynak verisini sağlar ve kriz tahmini için `ai` servisini çağırır.
+- **ai** "Aksaklık Risk Endeksi"ni ve önerileri üreten yapay zeka modelini barındırır.
 
-## 🚀 Kurulum
+> Şu an **frontend** tamamlanmış, **backend** ve **ai** iskelet/placeholder aşamasındadır.
+
+---
+
+## 🚀 Hızlı Başlangıç
+
+Her servis ayrı terminalde çalıştırılır:
 
 ```bash
-# Depoyu klonla
-git clone https://github.com/themaden/ORBIS.git
-cd ORBIS/frontend
+# 1) Frontend  (http://localhost:5173)
+cd frontend && npm install && npm run dev
 
-# Bağımlılıkları yükle
-npm install
+# 2) Backend   (http://localhost:4000)
+cd backend && npm install && npm run dev
 
-# Geliştirme sunucusu (http://localhost:5173)
-npm run dev
-
-# Üretim derlemesi
-npm run build
-
-# Derlemeyi önizle
-npm run preview
+# 3) AI servisi (http://localhost:8000)
+cd ai && pip install -r requirements.txt && uvicorn app.main:app --reload
 ```
 
-> **Not:** Tüm uygulama `frontend/` klasörü altındadır.
+Her klasörün kendi `README.md` dosyasında ayrıntılı kurulum vardır.
 
-## 📂 Proje Yapısı
+---
 
-```
-frontend/
-├── public/
-│   └── favicon.svg          # THY kaz logosu
-├── src/
-│   ├── components/
-│   │   ├── Sidebar.jsx       # Sol menü + giriş/destek modalları
-│   │   ├── TopBar.jsx        # Başlık + arama + canlı saat
-│   │   ├── WorldMap.jsx      # 3B dünya küresi
-│   │   ├── RightPanel.jsx    # Kriz tahmincisi paneli
-│   │   ├── Modal.jsx         # Portal tabanlı modal
-│   │   ├── Card.jsx          # Kart / istatistik bileşenleri
-│   │   └── Logo.jsx          # Turkish Airlines logosu
-│   ├── pages/
-│   │   ├── Operations.jsx
-│   │   ├── AIAnalytics.jsx
-│   │   ├── Resources.jsx
-│   │   ├── Communications.jsx
-│   │   └── SettingsPage.jsx
-│   ├── App.jsx               # Sayfa yönlendirme
-│   ├── index.css             # Tailwind + tema
-│   └── main.jsx
-├── index.html
-└── package.json
-```
+## 📦 Servisler
+
+| Servis | Teknoloji | Durum | Klasör |
+|--------|-----------|-------|--------|
+| Arayüz | React 19, Vite 8, Tailwind 3, d3-geo | ✅ Hazır | [`frontend/`](frontend) |
+| API | Node.js, Express | 🚧 İskelet | [`backend/`](backend) |
+| Yapay Zeka | Python, FastAPI | 🚧 İskelet | [`ai/`](ai) |
+
+---
 
 ## 🗺️ Yol Haritası
 
-- [ ] Küre render'ını canvas'a taşıyarak performans optimizasyonu
-- [ ] Gerçek uçuş verisi API entegrasyonu
-- [ ] Uçakların rotalar boyunca animasyonlu hareketi
-- [ ] Çoklu dil desteği (i18n)
+- [x] Frontend gösterge paneli (5 sayfa, 3B küre, kriz paneli)
+- [ ] Backend REST API'nin tamamlanması (auth, veri uç noktaları)
+- [ ] AI kriz tahmin modelinin eğitilmesi ve servise bağlanması
+- [ ] Frontend ↔ Backend ↔ AI canlı entegrasyonu
+- [ ] WebSocket ile gerçek zamanlı veri akışı
+- [ ] CI/CD + bulut dağıtımı (Vercel + Railway/Fly)
 
 ## 📄 Lisans
 
-Bu proje eğitim/demo amaçlıdır. Turkish Airlines markası ve logosu ilgili sahibine aittir.
+Eğitim/demo amaçlıdır. Turkish Airlines markası ve logosu ilgili sahibine aittir.
 
 ---
 
