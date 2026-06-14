@@ -9,6 +9,15 @@ import {
   Cpu,
   type LucideIcon,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
 import type { Analytics } from "../types";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -59,18 +68,37 @@ export default function AIAnalytics() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card title="Aylık Gecikme Tahminleri (saat)" className="lg:col-span-2">
-          <div className="flex items-end gap-3 h-56 px-2">
-            {data.bars.map((b, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                <div
-                  className="w-full rounded-t-lg bg-gradient-to-t from-thy to-red-400"
-                  style={{ height: `${b}%`, opacity: 0.85 }}
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={data.bars.map((v, i) => ({ ay: data.months[i], saat: v }))}
+                margin={{ top: 8, right: 8, bottom: 0, left: -20 }}
+              >
+                <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+                <XAxis
+                  dataKey="ay"
+                  tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
                 />
-                <span className="text-[11px] text-white/50">
-                  {data.months[i]}
-                </span>
-              </div>
-            ))}
+                <YAxis
+                  tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  cursor={{ fill: "rgba(255,255,255,0.05)" }}
+                  contentStyle={{
+                    background: "#14080a",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 12,
+                    fontSize: 12,
+                  }}
+                  labelStyle={{ color: "#fff" }}
+                />
+                <Bar dataKey="saat" fill="#E30A17" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </Card>
 

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
 import RequireAuth from "./components/RequireAuth";
@@ -38,9 +39,17 @@ function Layout() {
       <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
       <main className="flex-1 flex flex-col relative overflow-hidden min-w-0">
         <TopBar title={current.title} onMenu={() => setNavOpen(true)} />
-        <Suspense fallback={<PageLoader />}>
-          <Outlet />
-        </Suspense>
+        <motion.div
+          key={pathname}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className="flex-1 flex flex-col min-h-0"
+        >
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
+        </motion.div>
         <footer className="text-center text-xs text-white/40 py-3 shrink-0 px-2">
           © {new Date().getFullYear()} Turkish Airlines · ORBIS. Tüm hakları
           saklıdır.
