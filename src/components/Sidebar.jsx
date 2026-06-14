@@ -29,9 +29,10 @@ export default function Sidebar({ page, setPage }) {
       <div className="flex items-center gap-3 mb-8 px-1">
         <svg viewBox="0 0 64 64" className="w-10 h-10">
           <circle cx="32" cy="32" r="30" fill="#E30A17" />
+          {/* Turkish Airlines wild goose */}
           <path
-            d="M44 32c0 8-6 14-14 14-3 0-6-1-8-3 4 1 9 0 12-3 4-3 5-8 4-12-1-3-4-6-7-7 3-1 6-1 9 0 2 1 4 3 4 6v5z"
-            fill="#fff"
+            fill="#d6d6d6"
+            d="M14 42 C10 34 14 26 22 24 C20 20 22 16 27 15 C28 19 27 22 25 25 C34 23 45 25 54 20 C50 30 42 36 33 37 C39 39 45 39 50 37 C43 44 32 47 23 45 C18 44 15 44 14 42 Z"
           />
         </svg>
         <div className="leading-tight">
