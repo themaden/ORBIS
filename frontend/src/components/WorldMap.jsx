@@ -98,16 +98,28 @@ const PLANE =
 
 export default function WorldMap() {
   const [land, setLand] = useState([]);
+  const [status, setStatus] = useState("loading"); // loading | ready | error
   const [lambda, setLambda] = useState(20);
   const dragging = useRef(false);
   const last = useRef(0);
-  const planes = useMemo(makePlanes, []);
+  const planes = useMemo(() => makePlanes(), []);
 
   useEffect(() => {
+    let cancelled = false;
     fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
-      .then((r) => r.json())
-      .then((topo) => setLand(feature(topo, topo.objects.countries).features))
-      .catch(() => {});
+      .then((r) => {
+        if (!r.ok) throw new Error("network");
+        return r.json();
+      })
+      .then((topo) => {
+        if (cancelled) return;
+        setLand(feature(topo, topo.objects.countries).features);
+        setStatus("ready");
+      })
+      .catch(() => !cancelled && setStatus("error"));
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -161,10 +173,35 @@ export default function WorldMap() {
 
   return (
     <div className="absolute inset-0 flex items-center justify-center">
+      {status !== "ready" && (
+        <div className="absolute z-10 flex flex-col items-center gap-3 text-center">
+          {status === "loading" ? (
+            <>
+              <div className="w-10 h-10 border-2 border-white/15 border-t-thy rounded-full animate-spin" />
+              <div className="text-sm text-white/60">Dünya haritası yükleniyor…</div>
+            </>
+          ) : (
+            <>
+              <div className="text-thy text-3xl">⚠</div>
+              <div className="text-sm text-white/70">
+                Harita verisi yüklenemedi.
+                <br />
+                İnternet bağlantısını kontrol edin.
+              </div>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-1 px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-sm"
+              >
+                Tekrar dene
+              </button>
+            </>
+          )}
+        </div>
+      )}
       <svg
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         className="h-full max-h-full select-none cursor-grab active:cursor-grabbing"
-        style={{ width: "auto" }}
+        style={{ width: "auto", opacity: status === "ready" ? 1 : 0.25 }}
         onMouseDown={onDown}
         onMouseMove={onMove}
         onMouseUp={onUp}

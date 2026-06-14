@@ -26,7 +26,7 @@ export default function App() {
         <TopBar title={title} />
         <Comp />
         <footer className="text-center text-xs text-white/40 py-3 shrink-0">
-          © 2024 Turkish Airlines. All rights reserved.
+          © {new Date().getFullYear()} Turkish Airlines · ORBIS. Tüm hakları saklıdır.
         </footer>
       </main>
     </div>

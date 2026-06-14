@@ -1,7 +1,15 @@
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 export default function Modal({ open, onClose, title, children }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
   return createPortal(
     <div
@@ -9,11 +17,15 @@ export default function Modal({ open, onClose, title, children }) {
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title || "İletişim kutusu"}
         className="glass rounded-2xl w-[420px] max-w-[90vw] p-6 relative"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
+          aria-label="Kapat"
           className="absolute top-4 right-4 text-white/60 hover:text-white"
         >
           <X size={18} />

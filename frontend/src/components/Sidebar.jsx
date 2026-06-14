@@ -6,7 +6,6 @@ import {
   MessageSquare,
   Settings,
   Headphones,
-  UserCircle2,
   Phone,
   Mail,
   LogOut,
@@ -15,6 +14,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import Modal from "./Modal";
+import Logo from "./Logo";
 
 const items = [
   { id: "ops", icon: Plane, label: "Gerçek Zamanlı\nOperasyonlar" },
@@ -47,13 +47,7 @@ export default function Sidebar({ page, setPage }) {
   return (
     <aside className="w-[260px] h-full glass flex flex-col p-5 z-10">
       <div className="flex items-center gap-3 mb-8 px-1">
-        <svg viewBox="0 0 64 64" className="w-10 h-10">
-          <circle cx="32" cy="32" r="30" fill="#E30A17" />
-          <path
-            fill="#d6d6d6"
-            d="M14 42 C10 34 14 26 22 24 C20 20 22 16 27 15 C28 19 27 22 25 25 C34 23 45 25 54 20 C50 30 42 36 33 37 C39 39 45 39 50 37 C43 44 32 47 23 45 C18 44 15 44 14 42 Z"
-          />
-        </svg>
+        <Logo />
         <div className="leading-tight">
           <div className="font-bold text-[15px] tracking-wide">TURKISH</div>
           <div className="font-bold text-[15px] tracking-wide -mt-0.5">
@@ -150,13 +144,7 @@ export default function Sidebar({ page, setPage }) {
       {/* Personel Giriş modal */}
       <Modal open={modal === "login"} onClose={() => setModal(null)}>
         <div className="flex flex-col items-center text-center mb-6">
-          <svg viewBox="0 0 64 64" className="w-14 h-14 mb-3">
-            <circle cx="32" cy="32" r="30" fill="#E30A17" />
-            <path
-              fill="#d6d6d6"
-              d="M14 42 C10 34 14 26 22 24 C20 20 22 16 27 15 C28 19 27 22 25 25 C34 23 45 25 54 20 C50 30 42 36 33 37 C39 39 45 39 50 37 C43 44 32 47 23 45 C18 44 15 44 14 42 Z"
-            />
-          </svg>
+          <Logo className="w-14 h-14 mb-3" />
           <div className="text-lg font-bold tracking-[0.15em]">
             ORB<span className="text-thy">IS</span>
           </div>

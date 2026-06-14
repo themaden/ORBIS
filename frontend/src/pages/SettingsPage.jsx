@@ -1,11 +1,16 @@
 import { Card } from "../components/Card";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell, Globe, Moon, Shield, KeyRound } from "lucide-react";
 
-function Toggle({ checked, onChange }) {
+const STORAGE_KEY = "orbis.settings";
+
+function Toggle({ checked, onChange, label }) {
   return (
     <button
       onClick={() => onChange(!checked)}
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
       className={`w-11 h-6 rounded-full transition relative ${
         checked ? "bg-thy" : "bg-white/15"
       }`}
@@ -19,18 +24,31 @@ function Toggle({ checked, onChange }) {
   );
 }
 
+const DEFAULTS = { notify: true, dark: true, alerts: true, twofa: false };
+
 export default function SettingsPage() {
-  const [opts, setOpts] = useState({
-    notify: true,
-    dark: true,
-    alerts: true,
-    twofa: false,
+  const [opts, setOpts] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? { ...DEFAULTS, ...JSON.parse(saved) } : DEFAULTS;
+    } catch {
+      return DEFAULTS;
+    }
   });
-  const set = (k) => (v) => setOpts({ ...opts, [k]: v });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(opts));
+    } catch {
+      /* localStorage kullanılamıyor */
+    }
+  }, [opts]);
+
+  const set = (k) => (v) => setOpts((o) => ({ ...o, [k]: v }));
 
   return (
     <div className="flex-1 p-6 overflow-y-auto">
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card title="Profil">
           <div className="flex items-center gap-4 mb-4">
             <div className="w-16 h-16 rounded-full bg-thy flex items-center justify-center text-2xl font-bold">
@@ -49,7 +67,7 @@ export default function SettingsPage() {
           </button>
         </Card>
 
-        <Card title="Tercihler" className="col-span-2">
+        <Card title="Tercihler" className="lg:col-span-2">
           {[
             { k: "notify", icon: Bell, label: "Bildirimler", desc: "Tüm push bildirimleri" },
             { k: "dark", icon: Moon, label: "Koyu Mod", desc: "Komuta merkezi teması" },
@@ -69,13 +87,13 @@ export default function SettingsPage() {
                   <div className="text-xs text-white/55">{desc}</div>
                 </div>
               </div>
-              <Toggle checked={opts[k]} onChange={set(k)} />
+              <Toggle checked={opts[k]} onChange={set(k)} label={label} />
             </div>
           ))}
         </Card>
 
-        <Card title="Dil ve Bölge" className="col-span-3">
-          <div className="grid grid-cols-3 gap-4">
+        <Card title="Dil ve Bölge" className="lg:col-span-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { label: "Dil", value: "Türkçe", icon: Globe },
               { label: "Saat Dilimi", value: "GMT+3 (İstanbul)", icon: Globe },

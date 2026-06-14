@@ -7,15 +7,15 @@ const months = ["Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Eki","K
 export default function AIAnalytics() {
   return (
     <div className="flex-1 p-6 overflow-y-auto">
-      <div className="grid grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <Stat label="Tahmin Doğruluğu" value="94.2%" hint="Son 30 gün" accent="text-emerald-400" />
         <Stat label="Aktif Modeller" value="18" hint="3 yeni eğitildi" />
         <Stat label="Tespit Edilen Anomali" value="27" hint="Bugün" accent="text-thy" />
         <Stat label="Veri İşlem Hızı" value="2.4M/s" hint="Olay/saniye" accent="text-cyan-400" />
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <Card title="Aylık Gecikme Tahminleri (saat)" className="col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card title="Aylık Gecikme Tahminleri (saat)" className="lg:col-span-2">
           <div className="flex items-end gap-3 h-56 px-2">
             {bars.map((b, i) => (
               <div key={i} className="flex-1 flex flex-col items-center gap-2">
@@ -47,8 +47,8 @@ export default function AIAnalytics() {
           </ul>
         </Card>
 
-        <Card title="Yapay Zeka Önerileri" className="col-span-3">
-          <ul className="grid grid-cols-3 gap-4 text-sm">
+        <Card title="Yapay Zeka Önerileri" className="lg:col-span-3">
+          <ul className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             {[
               "TK1985 uçuşunun rotasını Atlantik üzerinden değiştir, 18dk tasarruf.",
               "Frankfurt aktarmalarında 35 dk tampon süre ekle (kötü hava).",

@@ -16,16 +16,16 @@ const colorFor = (s) =>
 export default function Resources() {
   return (
     <div className="flex-1 p-6 overflow-y-auto">
-      <div className="grid grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <Stat label="Aktif Uçak" value="386" hint="Filodaki toplam" />
         <Stat label="Görevdeki Mürettebat" value="1,248" hint="Pilot + Kabin" accent="text-cyan-400" />
         <Stat label="Boş Otel Odası" value="412" hint="Tüm üsler" accent="text-emerald-400" />
         <Stat label="Bakımda" value="14" hint="3 acil" accent="text-thy" />
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <Card title="Filo Durumu" className="col-span-2">
-          <table className="w-full text-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card title="Filo Durumu" className="lg:col-span-2 overflow-x-auto">
+          <table className="w-full text-sm min-w-[480px]">
             <thead className="text-white/50 text-left text-xs uppercase">
               <tr>
                 <th className="py-2">Kuyruk No</th>

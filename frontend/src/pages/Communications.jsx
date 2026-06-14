@@ -97,11 +97,29 @@ const statusColor = { online: "#34d399", idle: "#f0b429", offline: "#6b7280" };
 export default function Communications() {
   const [active, setActive] = useState("anlik-durum");
   const [text, setText] = useState("");
+  const [allMsgs, setAllMsgs] = useState(messagesByChannel);
 
   const activeName =
     categories.flatMap((c) => c.channels).find((c) => c.id === active)?.name ||
     "genel";
-  const msgs = messagesByChannel[active] || [];
+  const msgs = allMsgs[active] || [];
+
+  const send = () => {
+    const t = text.trim();
+    if (!t) return;
+    const now = new Date().toLocaleTimeString("tr-TR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    setAllMsgs((m) => ({
+      ...m,
+      [active]: [
+        ...(m[active] || []),
+        { user: "Ahmet Yılmaz", role: "Komuta", time: now, text: t },
+      ],
+    }));
+    setText("");
+  };
   const online = members.filter((m) => m.status !== "offline");
   const offline = members.filter((m) => m.status === "offline");
 
@@ -230,12 +248,18 @@ export default function Communications() {
               <input
                 value={text}
                 onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && send()}
+                aria-label={`${activeName} kanalına mesaj`}
                 placeholder={`#${activeName} kanalına mesaj gönder`}
                 className="flex-1 bg-transparent outline-none text-sm"
               />
               <Gift size={18} className="text-white/45" />
               <Smile size={18} className="text-white/45" />
-              <button className="bg-thy rounded-lg p-1.5">
+              <button
+                onClick={send}
+                aria-label="Mesaj gönder"
+                className="bg-thy rounded-lg p-1.5 hover:bg-red-600 transition"
+              >
                 <Send size={14} />
               </button>
             </div>
