@@ -1,15 +1,25 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
-import Operations from "./pages/Operations";
-import AIAnalytics from "./pages/AIAnalytics";
-import Resources from "./pages/Resources";
-import Communications from "./pages/Communications";
-import SettingsPage from "./pages/SettingsPage";
-import Login from "./pages/Login";
 import RequireAuth from "./components/RequireAuth";
 import { NAV } from "./nav";
+
+// Sayfalar tembel yüklenir (her sayfa ayrı bundle parçası)
+const Operations = lazy(() => import("./pages/Operations"));
+const AIAnalytics = lazy(() => import("./pages/AIAnalytics"));
+const Resources = lazy(() => import("./pages/Resources"));
+const Communications = lazy(() => import("./pages/Communications"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const Login = lazy(() => import("./pages/Login"));
+
+function PageLoader() {
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-white/15 border-t-thy rounded-full animate-spin" />
+    </div>
+  );
+}
 
 function Layout() {
   const { pathname } = useLocation();
@@ -28,7 +38,9 @@ function Layout() {
       <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
       <main className="flex-1 flex flex-col relative overflow-hidden min-w-0">
         <TopBar title={current.title} onMenu={() => setNavOpen(true)} />
-        <Outlet />
+        <Suspense fallback={<PageLoader />}>
+          <Outlet />
+        </Suspense>
         <footer className="text-center text-xs text-white/40 py-3 shrink-0 px-2">
           © {new Date().getFullYear()} Turkish Airlines · ORBIS. Tüm hakları
           saklıdır.
@@ -40,6 +52,7 @@ function Layout() {
 
 export default function App() {
   return (
+    <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route path="/giris" element={<Login />} />
       <Route
@@ -57,5 +70,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
+    </Suspense>
   );
 }
