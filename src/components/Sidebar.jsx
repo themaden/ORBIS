@@ -44,11 +44,11 @@ export default function Sidebar({ page, setPage }) {
 
       {/* product name */}
       <div className="mb-7 px-1">
-        <div className="text-[18px] font-extrabold tracking-tight">
-          Aero<span className="text-thy">Nexus</span>
+        <div className="text-[20px] font-extrabold tracking-[0.15em]">
+          ORB<span className="text-thy">IS</span>
         </div>
         <div className="text-[10px] text-white/45 tracking-[0.2em] uppercase">
-          Komuta Platformu
+          Global Komuta Platformu
         </div>
       </div>
 
