@@ -1,21 +1,17 @@
-import { useState, type FormEvent } from "react";
-import { NavLink } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   Headphones,
   Phone,
   Mail,
   MessageSquare,
   LogOut,
-  Lock,
-  User,
-  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import Modal from "./Modal";
 import Logo from "./Logo";
 import { NAV } from "../nav";
-
-type ModalKind = "support" | "login" | null;
+import { useAuth } from "../auth/AuthContext";
 
 interface SidebarProps {
   open?: boolean;
@@ -23,23 +19,21 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ open = false, onClose }: SidebarProps) {
-  const [modal, setModal] = useState<ModalKind>(null);
-  const [user, setUser] = useState("Ahmet Yılmaz");
-  const [sicil, setSicil] = useState("THY-04821");
-  const [pw, setPw] = useState("");
+  const [supportOpen, setSupportOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
-  const initials = user
+  const name = user?.name ?? "Misafir";
+  const initials = name
     .split(" ")
     .map((w) => w[0])
     .join("")
     .slice(0, 2)
     .toUpperCase();
 
-  const handleLogin = (e: FormEvent) => {
-    e.preventDefault();
-    if (!sicil.trim()) return;
-    setModal(null);
-    setPw("");
+  const handleLogout = () => {
+    logout();
+    navigate("/giris", { replace: true });
   };
 
   const supportItems: { icon: LucideIcon; label: string; v: string }[] = [
@@ -99,30 +93,38 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
 
       <div className="mt-auto pt-6 border-t border-white/10 flex flex-col gap-4">
         <button
-          onClick={() => setModal("support")}
+          onClick={() => setSupportOpen(true)}
           className="flex items-center gap-3 text-white/80 text-sm hover:text-white transition"
         >
           <Headphones size={18} />
           <span>Destek</span>
         </button>
-        <button
-          onClick={() => setModal("login")}
-          className="flex items-center gap-3 text-white/80 text-sm hover:text-white transition"
-        >
-          <span className="w-7 h-7 rounded-full bg-thy flex items-center justify-center text-[11px] font-bold shrink-0">
+
+        <div className="flex items-center gap-3">
+          <span className="w-8 h-8 rounded-full bg-thy flex items-center justify-center text-[11px] font-bold shrink-0">
             {initials}
           </span>
-          <div className="leading-tight text-left">
-            <div className="text-[13.5px] font-medium">Profilim</div>
-            <div className="text-[11px] text-white/50">Passenger: {user}</div>
+          <div className="leading-tight text-left min-w-0 flex-1">
+            <div className="text-[13.5px] font-medium truncate">{name}</div>
+            <div className="text-[11px] text-white/50">
+              {user?.sicil ?? "Operasyon"}
+            </div>
           </div>
-        </button>
+          <button
+            onClick={handleLogout}
+            aria-label="Oturumu kapat"
+            title="Oturumu kapat"
+            className="text-white/50 hover:text-thy transition"
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Destek modal */}
       <Modal
-        open={modal === "support"}
-        onClose={() => setModal(null)}
+        open={supportOpen}
+        onClose={() => setSupportOpen(false)}
         title="Destek Merkezi"
       >
         <p className="text-sm text-white/70 mb-4">
@@ -144,73 +146,6 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
             </li>
           ))}
         </ul>
-      </Modal>
-
-      {/* Personel Giriş modal */}
-      <Modal open={modal === "login"} onClose={() => setModal(null)}>
-        <div className="flex flex-col items-center text-center mb-6">
-          <Logo className="w-14 h-14 mb-3" />
-          <div className="text-lg font-bold tracking-[0.15em]">
-            ORB<span className="text-thy">IS</span>
-          </div>
-          <div className="text-xs text-white/50">Personel Girişi</div>
-        </div>
-
-        <form onSubmit={handleLogin} className="space-y-3">
-          <div>
-            <label className="text-xs text-white/55 mb-1 block">Ad Soyad</label>
-            <div className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2.5 border border-white/10 focus-within:border-thy transition">
-              <User size={15} className="text-white/50" />
-              <input
-                value={user}
-                onChange={(e) => setUser(e.target.value)}
-                className="bg-transparent outline-none text-sm flex-1"
-                placeholder="Ad Soyad"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs text-white/55 mb-1 block">Sicil No</label>
-            <div className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2.5 border border-white/10 focus-within:border-thy transition">
-              <ShieldCheck size={15} className="text-white/50" />
-              <input
-                value={sicil}
-                onChange={(e) => setSicil(e.target.value)}
-                className="bg-transparent outline-none text-sm flex-1"
-                placeholder="THY-00000"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs text-white/55 mb-1 block">Şifre</label>
-            <div className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2.5 border border-white/10 focus-within:border-thy transition">
-              <Lock size={15} className="text-white/50" />
-              <input
-                type="password"
-                value={pw}
-                onChange={(e) => setPw(e.target.value)}
-                className="bg-transparent outline-none text-sm flex-1"
-                placeholder="••••••••"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className="w-full py-2.5 rounded-xl bg-thy hover:bg-red-600 transition text-sm font-semibold mt-2"
-          >
-            Giriş Yap
-          </button>
-          <button
-            type="button"
-            onClick={() => setModal(null)}
-            className="w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 transition text-xs text-white/60 flex items-center justify-center gap-2"
-          >
-            <LogOut size={13} /> Oturumu Kapat
-          </button>
-        </form>
       </Modal>
     </aside>
   );

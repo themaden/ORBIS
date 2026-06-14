@@ -7,6 +7,8 @@ import AIAnalytics from "./pages/AIAnalytics";
 import Resources from "./pages/Resources";
 import Communications from "./pages/Communications";
 import SettingsPage from "./pages/SettingsPage";
+import Login from "./pages/Login";
+import RequireAuth from "./components/RequireAuth";
 import { NAV } from "./nav";
 
 function Layout() {
@@ -39,7 +41,14 @@ function Layout() {
 export default function App() {
   return (
     <Routes>
-      <Route element={<Layout />}>
+      <Route path="/giris" element={<Login />} />
+      <Route
+        element={
+          <RequireAuth>
+            <Layout />
+          </RequireAuth>
+        }
+      >
         <Route path="/" element={<Operations />} />
         <Route path="/analiz" element={<AIAnalytics />} />
         <Route path="/kaynaklar" element={<Resources />} />

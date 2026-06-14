@@ -1,13 +1,23 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
+import { AuthProvider } from "../auth/AuthContext";
+
+beforeEach(() => {
+  localStorage.setItem(
+    "orbis.auth",
+    JSON.stringify({ name: "Ahmet Yılmaz", sicil: "THY-04821" })
+  );
+});
 
 function renderSidebar() {
   return render(
     <MemoryRouter>
-      <Sidebar />
+      <AuthProvider>
+        <Sidebar />
+      </AuthProvider>
     </MemoryRouter>
   );
 }
@@ -27,10 +37,9 @@ describe("Sidebar", () => {
     expect(await screen.findByText("Destek Merkezi")).toBeInTheDocument();
   });
 
-  it("Profilim butonu giris modali acar", async () => {
-    const user = userEvent.setup();
+  it("oturum acan kullanicinin adini gosterir", () => {
     renderSidebar();
-    await user.click(screen.getByText("Profilim"));
-    expect(await screen.findByText("Personel Girişi")).toBeInTheDocument();
+    expect(screen.getByText("Ahmet Yılmaz")).toBeInTheDocument();
+    expect(screen.getByLabelText("Oturumu kapat")).toBeInTheDocument();
   });
 });
