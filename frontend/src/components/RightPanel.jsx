@@ -69,7 +69,7 @@ export default function RightPanel() {
   const { data, loading, error, reload } = useApi(() => api.getCrisis());
 
   return (
-    <aside className="w-[360px] h-full p-5 flex flex-col gap-4 z-10 overflow-y-auto">
+    <aside className="w-full xl:w-[360px] h-auto xl:h-full p-5 flex flex-col gap-4 z-10 overflow-y-auto shrink-0">
       <div className="glass rounded-2xl p-5">
         <h3 className="font-semibold text-[15px] mb-3">
           Yapay Zeka Kriz Tahmincisi

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Plane, MapPin } from "lucide-react";
+import { Search, Plane, MapPin, Menu } from "lucide-react";
 
 const FLIGHTS = [
   { code: "TK1985", route: "IST → FRA", type: "Uçuş" },
@@ -20,7 +20,7 @@ function liveClock() {
   });
 }
 
-export default function TopBar({ title }) {
+export default function TopBar({ title, onMenu }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [clock, setClock] = useState(liveClock());
@@ -47,9 +47,18 @@ export default function TopBar({ title }) {
 
   return (
     <div className="flex items-center justify-between px-4 md:px-8 pt-6 pb-4 gap-4 md:gap-6 flex-wrap">
-      <h1 className="text-2xl md:text-[32px] font-bold tracking-tight">
-        {title}
-      </h1>
+      <div className="flex items-center gap-3 min-w-0">
+        <button
+          onClick={onMenu}
+          aria-label="Menüyü aç"
+          className="lg:hidden glass rounded-lg p-2 shrink-0"
+        >
+          <Menu size={20} />
+        </button>
+        <h1 className="text-xl md:text-[32px] font-bold tracking-tight truncate">
+          {title}
+        </h1>
+      </div>
 
       <div className="flex items-center gap-3 md:gap-4">
         <div ref={boxRef} className="relative">

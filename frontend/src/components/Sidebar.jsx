@@ -14,7 +14,7 @@ import Modal from "./Modal";
 import Logo from "./Logo";
 import { NAV } from "../nav";
 
-export default function Sidebar() {
+export default function Sidebar({ open = false, onClose }) {
   const [modal, setModal] = useState(null); // "support" | "login" | null
   const [user, setUser] = useState("Ahmet Yılmaz");
   const [sicil, setSicil] = useState("THY-04821");
@@ -35,7 +35,11 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-[260px] h-full glass flex flex-col p-5 z-10">
+    <aside
+      style={{ left: open ? "0px" : "-260px" }}
+      className="w-[260px] h-full glass flex flex-col p-5 z-40 shrink-0
+        fixed top-0 bottom-0 lg:static lg:left-auto"
+    >
       <div className="flex items-center gap-3 mb-8 px-1">
         <Logo />
         <div className="leading-tight">
@@ -62,6 +66,7 @@ export default function Sidebar() {
             key={path}
             to={path}
             end={path === "/"}
+            onClick={onClose}
             className={({ isActive }) =>
               `group flex items-center gap-3 px-3 py-3 rounded-xl text-left transition ${
                 isActive
