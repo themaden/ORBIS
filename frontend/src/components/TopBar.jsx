@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search, Plane, MapPin, Menu } from "lucide-react";
+
+// type başına ilgili sayfa
+const ROUTE_FOR = { Uçuş: "/", Kaynak: "/kaynaklar", Yolcu: "/ayarlar" };
 
 const FLIGHTS = [
   { code: "TK1985", route: "IST → FRA", type: "Uçuş" },
@@ -25,6 +29,13 @@ export default function TopBar({ title, onMenu }) {
   const [open, setOpen] = useState(false);
   const [clock, setClock] = useState(liveClock());
   const boxRef = useRef(null);
+  const navigate = useNavigate();
+
+  const goToResult = (f) => {
+    setQ(f.code);
+    setOpen(false);
+    navigate(ROUTE_FOR[f.type] || "/");
+  };
 
   useEffect(() => {
     const id = setInterval(() => setClock(liveClock()), 1000);
@@ -83,10 +94,7 @@ export default function TopBar({ title, onMenu }) {
                 results.map((f) => (
                   <button
                     key={f.code}
-                    onClick={() => {
-                      setQ(f.code);
-                      setOpen(false);
-                    }}
+                    onClick={() => goToResult(f)}
                     className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/10 text-left"
                   >
                     {f.type === "Kaynak" ? (
