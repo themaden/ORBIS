@@ -1,3 +1,10 @@
+import { api } from "../api/client";
+import { useApi } from "../hooks/useApi";
+import { Skeleton, ErrorState } from "./Skeleton";
+
+const levelColor = (lvl) =>
+  lvl === "Yüksek" ? "text-thy" : lvl === "Orta" ? "text-orange-400" : "text-emerald-400";
+
 function polar(cx, cy, r, t) {
   // t: 0 = left (180°), 1 = right (0°), arc over the top
   const a = Math.PI - t * Math.PI;
@@ -72,6 +79,8 @@ function Gauge({ value = 75 }) {
 }
 
 export default function RightPanel() {
+  const { data, loading, error, reload } = useApi(() => api.getCrisis());
+
   return (
     <aside className="w-[360px] h-full p-5 flex flex-col gap-4 z-10 overflow-y-auto">
       <div className="glass rounded-2xl p-5">
@@ -79,41 +88,61 @@ export default function RightPanel() {
           Yapay Zeka Kriz Tahmincisi
         </h3>
         <div className="rounded-xl bg-black/30 p-4 border border-white/5">
-          <Gauge value={75} />
-          <div className="text-center -mt-1 text-sm text-white/80 font-medium leading-tight">
-            Aksaklık
-            <br />
-            Risk Endeksi
-          </div>
+          {loading ? (
+            <Skeleton className="h-[150px] w-full" />
+          ) : error ? (
+            <ErrorState onRetry={reload} />
+          ) : (
+            <>
+              <Gauge value={data.riskIndex} />
+              <div className="text-center -mt-1 text-sm text-white/80 font-medium leading-tight">
+                Aksaklık
+                <br />
+                Risk Endeksi
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       <div className="glass rounded-2xl p-5">
         <h3 className="font-semibold text-[15px] mb-3">Tahmini Gecikmeler</h3>
-        <div className="space-y-1.5 text-[13.5px]">
-          <div>
-            Avrupa (<span className="text-thy">Yüksek</span>,{" "}
-            <span className="text-thy">+2.5sa</span>)
+        {loading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-4 w-2/3" />
           </div>
-          <div>
-            Asya (<span className="text-orange-400">Orta</span>,{" "}
-            <span className="text-orange-400">+1sa</span>)
+        ) : error ? (
+          <ErrorState onRetry={reload} />
+        ) : (
+          <div className="space-y-1.5 text-[13.5px]">
+            {data.delays.map((d) => (
+              <div key={d.region}>
+                {d.region} (
+                <span className={levelColor(d.level)}>{d.level}</span>,{" "}
+                <span className={levelColor(d.level)}>+{d.extraHours}sa</span>)
+              </div>
+            ))}
           </div>
-        </div>
+        )}
       </div>
 
       <div className="glass rounded-2xl p-5">
         <h3 className="font-semibold text-[15px] mb-3">Yapay Zeka Önerileri</h3>
-        <div className="space-y-3 text-[13px] text-white/85 leading-relaxed">
-          <p>
-            Yaklaşan fırtına nedeniyle Londra'da 50 otel odasını önceden
-            ayırın.
-          </p>
-          <p>
-            Hava sistemini aşmak için uçuşları Orta Avrupa üzerinden yeniden
-            yönlendirin.
-          </p>
-        </div>
+        {loading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : error ? (
+          <ErrorState onRetry={reload} />
+        ) : (
+          <div className="space-y-3 text-[13px] text-white/85 leading-relaxed">
+            {data.suggestions.map((s, i) => (
+              <p key={i}>{s}</p>
+            ))}
+          </div>
+        )}
       </div>
     </aside>
   );

@@ -1,13 +1,10 @@
 import { useState } from "react";
+import { NavLink } from "react-router-dom";
 import {
-  Plane,
-  BrainCircuit,
-  Users,
-  MessageSquare,
-  Settings,
   Headphones,
   Phone,
   Mail,
+  MessageSquare,
   LogOut,
   Lock,
   User,
@@ -15,16 +12,9 @@ import {
 } from "lucide-react";
 import Modal from "./Modal";
 import Logo from "./Logo";
+import { NAV } from "../nav";
 
-const items = [
-  { id: "ops", icon: Plane, label: "Gerçek Zamanlı\nOperasyonlar" },
-  { id: "ai", icon: BrainCircuit, label: "Yapay Zeka Analizleri" },
-  { id: "resources", icon: Users, label: "Kaynak Yönetimi" },
-  { id: "comms", icon: MessageSquare, label: "İletişim Merkezi" },
-  { id: "settings", icon: Settings, label: "Ayarlar" },
-];
-
-export default function Sidebar({ page, setPage }) {
+export default function Sidebar() {
   const [modal, setModal] = useState(null); // "support" | "login" | null
   const [user, setUser] = useState("Ahmet Yılmaz");
   const [sicil, setSicil] = useState("THY-04821");
@@ -67,25 +57,25 @@ export default function Sidebar({ page, setPage }) {
       </div>
 
       <nav className="flex flex-col gap-1.5">
-        {items.map(({ id, icon: Icon, label }) => {
-          const active = id === page;
-          return (
-            <button
-              key={id}
-              onClick={() => setPage(id)}
-              className={`group flex items-center gap-3 px-3 py-3 rounded-xl text-left transition ${
-                active
+        {NAV.map(({ path, icon: Icon, label }) => (
+          <NavLink
+            key={path}
+            to={path}
+            end={path === "/"}
+            className={({ isActive }) =>
+              `group flex items-center gap-3 px-3 py-3 rounded-xl text-left transition ${
+                isActive
                   ? "bg-white/10 border border-white/10"
                   : "hover:bg-white/5 border border-transparent"
-              }`}
-            >
-              <Icon size={18} className="text-white/90 shrink-0" />
-              <span className="text-[13.5px] text-white/90 whitespace-pre-line leading-tight">
-                {label}
-              </span>
-            </button>
-          );
-        })}
+              }`
+            }
+          >
+            <Icon size={18} className="text-white/90 shrink-0" />
+            <span className="text-[13.5px] text-white/90 whitespace-pre-line leading-tight">
+              {label}
+            </span>
+          </NavLink>
+        ))}
       </nav>
 
       <div className="mt-auto pt-6 border-t border-white/10 flex flex-col gap-4">
