@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useApi } from "../hooks/useApi";
 import { Skeleton, ErrorState } from "./Skeleton";
@@ -67,6 +68,17 @@ function Gauge({ value = 75 }) {
 
 export default function RightPanel() {
   const { data, loading, error, reload } = useApi(() => api.getCrisis());
+  const [live, setLive] = useState(null);
+
+  // İlk veri geldikten sonra canlı akışa abone ol
+  useEffect(() => {
+    if (!data) return;
+    const unsub = api.subscribeCrisis(setLive);
+    return unsub;
+  }, [data]);
+
+  const view = live || data;
+  const updatedAt = live?.updatedAt;
 
   return (
     <aside className="w-full xl:w-[360px] h-auto xl:h-full p-5 flex flex-col gap-4 z-10 overflow-y-auto shrink-0">
@@ -81,11 +93,20 @@ export default function RightPanel() {
             <ErrorState onRetry={reload} />
           ) : (
             <>
-              <Gauge value={data.riskIndex} />
+              <Gauge value={view.riskIndex} />
               <div className="text-center -mt-1 text-sm text-white/80 font-medium leading-tight">
                 Aksaklık
                 <br />
                 Risk Endeksi
+              </div>
+              <div className="flex items-center justify-center gap-1.5 mt-3 text-[10px] text-white/40">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+                </span>
+                {updatedAt
+                  ? `Canlı · ${new Date(updatedAt).toLocaleTimeString("tr-TR")}`
+                  : "Canlı veri akışı"}
               </div>
             </>
           )}

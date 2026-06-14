@@ -13,10 +13,24 @@ async function resolve(data, ms = LATENCY) {
   return JSON.parse(JSON.stringify(data));
 }
 
+// Canlı kriz akışı simülasyonu: risk endeksini periyodik olarak hafifçe
+// oynatır (rastgele yürüyüş). Backend gelince burası WebSocket aboneliğine
+// dönüşecek; tüketici arayüz (RightPanel) değişmeyecek.
+function subscribeCrisis(onUpdate, intervalMs = 4000) {
+  let risk = mock.crisis.riskIndex;
+  const id = setInterval(() => {
+    const step = Math.round((Math.random() - 0.5) * 10);
+    risk = Math.max(55, Math.min(92, risk + step));
+    onUpdate({ ...mock.crisis, riskIndex: risk, updatedAt: Date.now() });
+  }, intervalMs);
+  return () => clearInterval(id);
+}
+
 export const api = {
   getCrisis: () => resolve(mock.crisis),
   getFleet: () => resolve(mock.fleet),
   getResourceStats: () => resolve(mock.resourceStats),
   getResourceUsage: () => resolve(mock.resourceUsage),
   getAnalytics: () => resolve(mock.analytics),
+  subscribeCrisis,
 };
