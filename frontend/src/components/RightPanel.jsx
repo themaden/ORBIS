@@ -92,12 +92,12 @@ export default function RightPanel() {
         <h3 className="font-semibold text-[15px] mb-3">Tahmini Gecikmeler</h3>
         <div className="space-y-1.5 text-[13.5px]">
           <div>
-            Europe (<span className="text-thy">Major</span>,{" "}
-            <span className="text-thy">+2.5h</span>)
+            Avrupa (<span className="text-thy">Yüksek</span>,{" "}
+            <span className="text-thy">+2.5sa</span>)
           </div>
           <div>
-            Asia (<span className="text-orange-400">Moderate</span>,{" "}
-            <span className="text-orange-400">+1h</span>)
+            Asya (<span className="text-orange-400">Orta</span>,{" "}
+            <span className="text-orange-400">+1sa</span>)
           </div>
         </div>
       </div>
@@ -105,8 +105,14 @@ export default function RightPanel() {
       <div className="glass rounded-2xl p-5">
         <h3 className="font-semibold text-[15px] mb-3">Yapay Zeka Önerileri</h3>
         <div className="space-y-3 text-[13px] text-white/85 leading-relaxed">
-          <p>Pre-allocate 50 hotel rooms in London due to incoming storm</p>
-          <p>Reroute flights over central Europe to avoid weather system.</p>
+          <p>
+            Yaklaşan fırtına nedeniyle Londra'da 50 otel odasını önceden
+            ayırın.
+          </p>
+          <p>
+            Hava sistemini aşmak için uçuşları Orta Avrupa üzerinden yeniden
+            yönlendirin.
+          </p>
         </div>
       </div>
     </aside>
