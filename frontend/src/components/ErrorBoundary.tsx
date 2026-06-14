@@ -1,16 +1,20 @@
-import { Component } from "react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 
-export default class ErrorBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { error: null };
-  }
+interface Props {
+  children: ReactNode;
+}
+interface State {
+  error: Error | null;
+}
 
-  static getDerivedStateFromError(error) {
+export default class ErrorBoundary extends Component<Props, State> {
+  state: State = { error: null };
+
+  static getDerivedStateFromError(error: Error): State {
     return { error };
   }
 
-  componentDidCatch(error, info) {
+  componentDidCatch(error: Error, info: ErrorInfo) {
     // Gerçek projede burada bir hata izleme servisine (Sentry vb.) gönderilir
     console.error("ErrorBoundary:", error, info);
   }

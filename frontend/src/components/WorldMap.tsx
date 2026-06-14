@@ -1,18 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   geoOrthographic,
   geoPath,
   geoGraticule10,
   geoDistance,
+  type GeoPermissibleObjects,
 } from "d3-geo";
 import { feature } from "topojson-client";
+import type { Feature, FeatureCollection } from "geojson";
 
 const SIZE = 560;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
 const R = SIZE / 2 - 18;
 
-const IST = [28.97, 41.01];
+type Coord = [number, number];
+type Capital = [number, number, string];
+type Plane = [number, number, number];
+
+const IST: Coord = [28.97, 41.01];
 
 // All country capitals: [lon, lat, name]
 const capitals = [
@@ -72,16 +78,16 @@ const capitals = [
   [-58.16, 6.80, "Georgetown"], [-55.20, 5.87, "Paramaribo"], [149.13, -35.28, "Canberra"],
   [174.78, -41.29, "Wellington"], [147.18, -9.44, "Port Moresby"], [178.44, -18.12, "Suva"],
   [-171.76, -13.83, "Apia"], [10.45, 51.17, "Frankfurt"], [-21.83, 64.13, "Keflavik"],
-];
+] as unknown as Capital[];
 
 // Pseudo-random flightradar-style planes derived from capitals (stable)
-function makePlanes() {
+function makePlanes(): Plane[] {
   let seed = 1337;
   const rnd = () => {
     seed = (seed * 1103515245 + 12345) & 0x7fffffff;
     return seed / 0x7fffffff;
   };
-  const planes = [];
+  const planes: Plane[] = [];
   for (let i = 0; i < 55; i++) {
     const base = capitals[Math.floor(rnd() * capitals.length)];
     planes.push([
@@ -96,9 +102,11 @@ function makePlanes() {
 const PLANE =
   "M0,-9 L1.4,-3 L8,1 L8,2.6 L1.4,1.6 L1,7 L3,8.6 L3,9.6 L0,8.6 L-3,9.6 L-3,8.6 L-1,7 L-1.4,1.6 L-8,2.6 L-8,1 L-1.4,-3 Z";
 
+type Status = "loading" | "ready" | "error";
+
 export default function WorldMap() {
-  const [land, setLand] = useState([]);
-  const [status, setStatus] = useState("loading"); // loading | ready | error
+  const [land, setLand] = useState<Feature[]>([]);
+  const [status, setStatus] = useState<Status>("loading");
   const [lambda, setLambda] = useState(20);
   const dragging = useRef(false);
   const last = useRef(0);
@@ -113,7 +121,11 @@ export default function WorldMap() {
       })
       .then((topo) => {
         if (cancelled) return;
-        setLand(feature(topo, topo.objects.countries).features);
+        const fc = feature(
+          topo,
+          topo.objects.countries
+        ) as unknown as FeatureCollection;
+        setLand(fc.features);
         setStatus("ready");
       })
       .catch(() => !cancelled && setStatus("error"));
@@ -123,9 +135,9 @@ export default function WorldMap() {
   }, []);
 
   useEffect(() => {
-    let raf;
+    let raf = 0;
     let prev = performance.now();
-    const tick = (now) => {
+    const tick = (now: number) => {
       const dt = now - prev;
       prev = now;
       if (!dragging.current) setLambda((l) => (l + dt * 0.005) % 360);
@@ -135,8 +147,8 @@ export default function WorldMap() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const rotate = [-lambda, -18, 0];
-  const center = [lambda, 18];
+  const rotate: [number, number, number] = [-lambda, -18, 0];
+  const center: Coord = [lambda, 18];
 
   const projection = geoOrthographic()
     .scale(R)
@@ -145,31 +157,39 @@ export default function WorldMap() {
     .clipAngle(90);
   const path = geoPath(projection).pointRadius(2.4);
 
-  const visible = (c) => geoDistance(c, center) < Math.PI / 2 - 0.02;
+  const visible = (c: Coord) => geoDistance(c, center) < Math.PI / 2 - 0.02;
+  const draw = (obj: GeoPermissibleObjects) => path(obj) ?? undefined;
 
   // a handful of red routes from IST to major hubs
-  const majorRoutes = [
-    [-74, 40.7], [-0.13, 51.5], [139.69, 35.69], [55.3, 25.2],
-    [103.82, 1.35], [116.4, 39.9], [-43.2, -22.9], [37.62, 55.75],
-    [31.24, 30.04], [77.21, 28.61], [-99.13, 19.43], [151.2, -33.9],
-  ]
+  const majorRoutes = (
+    [
+      [-74, 40.7], [-0.13, 51.5], [139.69, 35.69], [55.3, 25.2],
+      [103.82, 1.35], [116.4, 39.9], [-43.2, -22.9], [37.62, 55.75],
+      [31.24, 30.04], [77.21, 28.61], [-99.13, 19.43], [151.2, -33.9],
+    ] as Coord[]
+  )
     .filter((d) => visible(d) || visible(IST))
-    .map((d) => ({ type: "LineString", coordinates: [IST, d] }));
+    .map(
+      (d) =>
+        ({ type: "LineString", coordinates: [IST, d] }) as GeoPermissibleObjects
+    );
 
   const istPt = projection(IST);
   const istVisible = visible(IST);
 
-  const onDown = (e) => {
+  const onDown = (e: MouseEvent<SVGSVGElement>) => {
     dragging.current = true;
     last.current = e.clientX;
   };
-  const onMove = (e) => {
+  const onMove = (e: MouseEvent<SVGSVGElement>) => {
     if (!dragging.current) return;
     const dx = e.clientX - last.current;
     last.current = e.clientX;
     setLambda((l) => (l + dx * 0.4 + 360) % 360);
   };
-  const onUp = () => (dragging.current = false);
+  const onUp = () => {
+    dragging.current = false;
+  };
 
   return (
     <div className="absolute inset-0 flex items-center justify-center">
@@ -227,7 +247,7 @@ export default function WorldMap() {
         <circle cx={CX} cy={CY} r={R} fill="url(#ocean)" />
 
         <path
-          d={path(geoGraticule10())}
+          d={draw(geoGraticule10())}
           fill="none"
           stroke="rgba(255,255,255,0.06)"
           strokeWidth="0.5"
@@ -236,7 +256,7 @@ export default function WorldMap() {
         {land.map((g, i) => (
           <path
             key={i}
-            d={path(g)}
+            d={draw(g)}
             fill="#3a4150"
             stroke="#4a5260"
             strokeWidth="0.4"
@@ -247,7 +267,7 @@ export default function WorldMap() {
         {majorRoutes.map((f, i) => (
           <path
             key={`r-${i}`}
-            d={path(f)}
+            d={draw(f)}
             fill="none"
             stroke="#E30A17"
             strokeWidth="1"
@@ -258,8 +278,9 @@ export default function WorldMap() {
 
         {/* capital markers (pins) */}
         {capitals.map((c, i) => {
-          if (!visible(c)) return null;
-          const p = projection(c);
+          const coord: Coord = [c[0], c[1]];
+          if (!visible(coord)) return null;
+          const p = projection(coord);
           if (!p) return null;
           return (
             <g key={`c-${i}`}>
@@ -279,7 +300,7 @@ export default function WorldMap() {
 
         {/* flightradar-style planes */}
         {planes.map((pl, i) => {
-          const coord = [pl[0], pl[1]];
+          const coord: Coord = [pl[0], pl[1]];
           if (!visible(coord)) return null;
           const p = projection(coord);
           if (!p) return null;
@@ -305,9 +326,7 @@ export default function WorldMap() {
               stroke="rgba(255,255,255,0.6)"
               strokeWidth="1"
             />
-            <g
-              transform={`translate(${istPt[0]},${istPt[1]}) rotate(45) scale(0.95)`}
-            >
+            <g transform={`translate(${istPt[0]},${istPt[1]}) rotate(45) scale(0.95)`}>
               <path d={PLANE} fill="#fff" />
             </g>
             <text

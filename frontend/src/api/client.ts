@@ -2,21 +2,25 @@
 // Backend hazır olunca yalnızca buradaki gövdeler `fetch(...)` ile değişecek;
 // bileşenler değişmeden çalışmaya devam eder.
 import * as mock from "./mockData";
+import type { Crisis, FleetItem, StatItem, ResourceUsageItem, Analytics } from "../types";
 
 const LATENCY = 350; // gerçekçi yükleme hissi için yapay gecikme
 
-const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-async function resolve(data, ms = LATENCY) {
+async function resolve<T>(data: T, ms = LATENCY): Promise<T> {
   await delay(ms);
   // referans paylaşımını önlemek için kopyala
-  return JSON.parse(JSON.stringify(data));
+  return JSON.parse(JSON.stringify(data)) as T;
 }
 
 // Canlı kriz akışı simülasyonu: risk endeksini periyodik olarak hafifçe
 // oynatır (rastgele yürüyüş). Backend gelince burası WebSocket aboneliğine
 // dönüşecek; tüketici arayüz (RightPanel) değişmeyecek.
-function subscribeCrisis(onUpdate, intervalMs = 4000) {
+function subscribeCrisis(
+  onUpdate: (c: Crisis) => void,
+  intervalMs = 4000
+): () => void {
   let risk = mock.crisis.riskIndex;
   const id = setInterval(() => {
     const step = Math.round((Math.random() - 0.5) * 10);
@@ -27,10 +31,10 @@ function subscribeCrisis(onUpdate, intervalMs = 4000) {
 }
 
 export const api = {
-  getCrisis: () => resolve(mock.crisis),
-  getFleet: () => resolve(mock.fleet),
-  getResourceStats: () => resolve(mock.resourceStats),
-  getResourceUsage: () => resolve(mock.resourceUsage),
-  getAnalytics: () => resolve(mock.analytics),
+  getCrisis: (): Promise<Crisis> => resolve(mock.crisis),
+  getFleet: (): Promise<FleetItem[]> => resolve(mock.fleet),
+  getResourceStats: (): Promise<StatItem[]> => resolve(mock.resourceStats),
+  getResourceUsage: (): Promise<ResourceUsageItem[]> => resolve(mock.resourceUsage),
+  getAnalytics: (): Promise<Analytics> => resolve(mock.analytics),
   subscribeCrisis,
 };

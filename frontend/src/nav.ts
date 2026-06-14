@@ -1,7 +1,8 @@
 import { Plane, BrainCircuit, Users, MessageSquare, Settings } from "lucide-react";
+import type { NavItem } from "./types";
 
 // Sidebar ve Layout (başlık) tarafından paylaşılan tek navigasyon kaynağı
-export const NAV = [
+export const NAV: NavItem[] = [
   {
     path: "/",
     title: "Global Operasyon Komuta Merkezi",

@@ -16,7 +16,34 @@ import {
   Settings as Cog,
 } from "lucide-react";
 
-const categories = [
+type Role = "Komuta" | "Pilot" | "Kabin" | "Yer";
+type Presence = "online" | "idle" | "offline";
+
+interface Channel {
+  id: string;
+  name: string;
+  type: "text" | "voice";
+  unread?: boolean;
+  badge?: number;
+  count?: number;
+}
+interface Category {
+  name: string;
+  channels: Channel[];
+}
+interface Message {
+  user: string;
+  role: Role;
+  time: string;
+  text: string;
+}
+interface Member {
+  name: string;
+  role: Role;
+  status: Presence;
+}
+
+const categories: Category[] = [
   {
     name: "OPERASYON",
     channels: [
@@ -43,14 +70,14 @@ const categories = [
   },
 ];
 
-const roleColor = {
+const roleColor: Record<Role, string> = {
   Komuta: "#E30A17",
   Pilot: "#f0b429",
   Kabin: "#38bdf8",
   Yer: "#34d399",
 };
 
-const messagesByChannel = {
+const messagesByChannel: Record<string, Message[]> = {
   "anlik-durum": [
     { user: "Op. Merkezi", role: "Komuta", time: "14:02", text: "TK1985 için Frankfurt aktarması revize ediliyor. Tüm birimler hazır olsun." },
     { user: "Mehmet Demir", role: "Pilot", time: "14:04", text: "Anlaşıldı, yeni kapı bilgisini bekliyoruz." },
@@ -70,7 +97,7 @@ const messagesByChannel = {
   ],
 };
 
-function Avatar({ name, role }) {
+function Avatar({ name, role }: { name: string; role: Role }) {
   const init = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   return (
     <div
@@ -82,7 +109,7 @@ function Avatar({ name, role }) {
   );
 }
 
-const members = [
+const members: Member[] = [
   { name: "Op. Merkezi", role: "Komuta", status: "online" },
   { name: "Mehmet Demir", role: "Pilot", status: "online" },
   { name: "Selin Arslan", role: "Pilot", status: "online" },
@@ -92,12 +119,16 @@ const members = [
   { name: "Elif Çetin", role: "Kabin", status: "offline" },
 ];
 
-const statusColor = { online: "#34d399", idle: "#f0b429", offline: "#6b7280" };
+const statusColor: Record<Presence, string> = {
+  online: "#34d399",
+  idle: "#f0b429",
+  offline: "#6b7280",
+};
 
 export default function Communications() {
   const [active, setActive] = useState("anlik-durum");
   const [text, setText] = useState("");
-  const [allMsgs, setAllMsgs] = useState(messagesByChannel);
+  const [allMsgs, setAllMsgs] = useState<Record<string, Message[]>>(messagesByChannel);
 
   const activeName =
     categories.flatMap((c) => c.channels).find((c) => c.id === active)?.name ||
@@ -161,7 +192,7 @@ export default function Communications() {
                           {ch.badge}
                         </span>
                       )}
-                      {ch.type === "voice" && ch.count > 0 && (
+                      {ch.type === "voice" && (ch.count ?? 0) > 0 && (
                         <span className="ml-auto text-[10px] text-white/40">
                           {ch.count}
                         </span>
@@ -203,6 +234,7 @@ export default function Communications() {
                 <Search size={13} />
                 <input
                   placeholder="Ara"
+                  aria-label="Kanal içi ara"
                   className="bg-transparent outline-none text-xs w-20"
                 />
               </div>
@@ -225,17 +257,12 @@ export default function Communications() {
                 <Avatar name={m.user} role={m.role} />
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-2">
-                    <span
-                      className="font-semibold text-sm"
-                      style={{ color: roleColor[m.role] }}
-                    >
+                    <span className="font-semibold text-sm" style={{ color: roleColor[m.role] }}>
                       {m.user}
                     </span>
                     <span className="text-[10px] text-white/35">{m.time}</span>
                   </div>
-                  <div className="text-sm text-white/85 leading-relaxed">
-                    {m.text}
-                  </div>
+                  <div className="text-sm text-white/85 leading-relaxed">{m.text}</div>
                 </div>
               </div>
             ))}
@@ -286,7 +313,7 @@ export default function Communications() {
   );
 }
 
-function MemberRow({ m, dim }) {
+function MemberRow({ m, dim }: { m: Member; dim?: boolean }) {
   return (
     <div
       className={`flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-white/5 ${
@@ -301,10 +328,7 @@ function MemberRow({ m, dim }) {
         />
       </div>
       <div className="min-w-0">
-        <div
-          className="text-sm font-medium truncate"
-          style={{ color: roleColor[m.role] }}
-        >
+        <div className="text-sm font-medium truncate" style={{ color: roleColor[m.role] }}>
           {m.name}
         </div>
         <div className="text-[10px] text-white/40">{m.role}</div>

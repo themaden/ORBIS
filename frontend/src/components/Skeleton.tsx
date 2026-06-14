@@ -1,9 +1,15 @@
-export function Skeleton({ className = "" }) {
+export function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse bg-white/10 rounded ${className}`} />;
 }
 
 // Veri çekme hatası için ortak küçük kutu
-export function ErrorState({ message = "Veri yüklenemedi", onRetry }) {
+export function ErrorState({
+  message = "Veri yüklenemedi",
+  onRetry,
+}: {
+  message?: string;
+  onRetry?: () => void;
+}) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
       <div className="text-thy text-2xl">⚠</div>

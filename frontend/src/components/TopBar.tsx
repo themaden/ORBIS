@@ -2,10 +2,21 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Plane, MapPin, Menu } from "lucide-react";
 
-// type başına ilgili sayfa
-const ROUTE_FOR = { Uçuş: "/", Kaynak: "/kaynaklar", Yolcu: "/ayarlar" };
+type ResultType = "Uçuş" | "Kaynak" | "Yolcu";
+interface SearchItem {
+  code: string;
+  route: string;
+  type: ResultType;
+}
 
-const FLIGHTS = [
+// type başına ilgili sayfa
+const ROUTE_FOR: Record<ResultType, string> = {
+  Uçuş: "/",
+  Kaynak: "/kaynaklar",
+  Yolcu: "/ayarlar",
+};
+
+const FLIGHTS: SearchItem[] = [
   { code: "TK1985", route: "IST → FRA", type: "Uçuş" },
   { code: "TK0011", route: "IST → JFK", type: "Uçuş" },
   { code: "TK0080", route: "IST → NRT", type: "Uçuş" },
@@ -24,14 +35,19 @@ function liveClock() {
   });
 }
 
-export default function TopBar({ title, onMenu }) {
+interface TopBarProps {
+  title: string;
+  onMenu?: () => void;
+}
+
+export default function TopBar({ title, onMenu }: TopBarProps) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [clock, setClock] = useState(liveClock());
-  const boxRef = useRef(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  const goToResult = (f) => {
+  const goToResult = (f: SearchItem) => {
     setQ(f.code);
     setOpen(false);
     navigate(ROUTE_FOR[f.type] || "/");
@@ -43,7 +59,10 @@ export default function TopBar({ title, onMenu }) {
   }, []);
 
   useEffect(() => {
-    const onDoc = (e) => boxRef.current && !boxRef.current.contains(e.target) && setOpen(false);
+    const onDoc = (e: MouseEvent) =>
+      boxRef.current &&
+      !boxRef.current.contains(e.target as Node) &&
+      setOpen(false);
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);

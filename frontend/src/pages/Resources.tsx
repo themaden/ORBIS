@@ -2,11 +2,12 @@ import { Card, Stat } from "../components/Card";
 import { Skeleton, ErrorState } from "../components/Skeleton";
 import { api } from "../api/client";
 import { useApi } from "../hooks/useApi";
-import { Plane, Users, Hotel, Wrench } from "lucide-react";
+import { Plane, Users, Hotel, Wrench, type LucideIcon } from "lucide-react";
+import type { FleetItem } from "../types";
 
-const ICONS = { Plane, Users, Hotel, Wrench };
+const ICONS: Record<string, LucideIcon> = { Plane, Users, Hotel, Wrench };
 
-const colorFor = (s) =>
+const colorFor = (s: FleetItem["status"]) =>
   s === "Uçuşta" ? "text-emerald-400" :
   s === "Bakımda" ? "text-orange-400" : "text-cyan-400";
 
@@ -18,7 +19,7 @@ export default function Resources() {
   return (
     <div className="flex-1 p-6 overflow-y-auto">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        {stats.loading
+        {stats.loading || !stats.data
           ? Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-24" />
             ))
@@ -29,7 +30,7 @@ export default function Resources() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card title="Filo Durumu" className="lg:col-span-2 overflow-x-auto">
-          {fleet.loading ? (
+          {fleet.loading || !fleet.data ? (
             <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Skeleton key={i} className="h-8 w-full" />
@@ -71,7 +72,7 @@ export default function Resources() {
         </Card>
 
         <Card title="Kaynak Tahsisi">
-          {usage.loading ? (
+          {usage.loading || !usage.data ? (
             <div className="space-y-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-8 w-full" />

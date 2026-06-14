@@ -1,5 +1,5 @@
 // Turkish Airlines wild goose roundel
-export default function Logo({ className = "w-10 h-10" }) {
+export default function Logo({ className = "w-10 h-10" }: { className?: string }) {
   return (
     <svg viewBox="0 0 64 64" className={className} role="img" aria-label="Turkish Airlines">
       <circle cx="32" cy="32" r="30" fill="#E30A17" />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { NavLink } from "react-router-dom";
 import {
   Headphones,
@@ -9,13 +9,21 @@ import {
   Lock,
   User,
   ShieldCheck,
+  type LucideIcon,
 } from "lucide-react";
 import Modal from "./Modal";
 import Logo from "./Logo";
 import { NAV } from "../nav";
 
-export default function Sidebar({ open = false, onClose }) {
-  const [modal, setModal] = useState(null); // "support" | "login" | null
+type ModalKind = "support" | "login" | null;
+
+interface SidebarProps {
+  open?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ open = false, onClose }: SidebarProps) {
+  const [modal, setModal] = useState<ModalKind>(null);
   const [user, setUser] = useState("Ahmet Yılmaz");
   const [sicil, setSicil] = useState("THY-04821");
   const [pw, setPw] = useState("");
@@ -27,12 +35,18 @@ export default function Sidebar({ open = false, onClose }) {
     .slice(0, 2)
     .toUpperCase();
 
-  const handleLogin = (e) => {
+  const handleLogin = (e: FormEvent) => {
     e.preventDefault();
     if (!sicil.trim()) return;
     setModal(null);
     setPw("");
   };
+
+  const supportItems: { icon: LucideIcon; label: string; v: string }[] = [
+    { icon: Phone, label: "Acil Operasyon Hattı", v: "+90 212 444 0 849" },
+    { icon: Mail, label: "Destek E-posta", v: "destek@thy.com" },
+    { icon: MessageSquare, label: "Canlı Sohbet", v: "INT-2200 dahili" },
+  ];
 
   return (
     <aside
@@ -115,11 +129,7 @@ export default function Sidebar({ open = false, onClose }) {
           7/24 operasyon destek hattımıza ulaşın.
         </p>
         <ul className="space-y-2.5">
-          {[
-            { icon: Phone, label: "Acil Operasyon Hattı", v: "+90 212 444 0 849" },
-            { icon: Mail, label: "Destek E-posta", v: "destek@thy.com" },
-            { icon: MessageSquare, label: "Canlı Sohbet", v: "INT-2200 dahili" },
-          ].map(({ icon: Icon, label, v }) => (
+          {supportItems.map(({ icon: Icon, label, v }) => (
             <li
               key={label}
               className="bg-white/5 rounded-xl p-3 border border-white/10 flex items-center gap-3"

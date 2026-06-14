@@ -3,11 +3,12 @@ import { api } from "../api/client";
 import { useApi } from "../hooks/useApi";
 import { Skeleton, ErrorState } from "./Skeleton";
 import { polar, arcPath as arc, valueToRatio } from "../lib/gauge";
+import type { Crisis, DelayLevel } from "../types";
 
-const levelColor = (lvl) =>
+const levelColor = (lvl: DelayLevel) =>
   lvl === "Yüksek" ? "text-thy" : lvl === "Orta" ? "text-orange-400" : "text-emerald-400";
 
-function Gauge({ value = 75 }) {
+function Gauge({ value = 75 }: { value?: number }) {
   const cx = 110;
   const cy = 110;
   const r = 78;
@@ -41,25 +42,10 @@ function Gauge({ value = 75 }) {
         strokeLinecap="round"
       />
       {/* needle */}
-      <line
-        x1={cx}
-        y1={cy}
-        x2={nx}
-        y2={ny}
-        stroke="#fff"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
+      <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#fff" strokeWidth="3" strokeLinecap="round" />
       <circle cx={cx} cy={cy} r="5" fill="#fff" />
       {/* value text */}
-      <text
-        x={cx}
-        y={cy - 18}
-        textAnchor="middle"
-        fontSize="26"
-        fontWeight="700"
-        fill="#E30A17"
-      >
+      <text x={cx} y={cy - 18} textAnchor="middle" fontSize="26" fontWeight="700" fill="#E30A17">
         {value}%
       </text>
     </svg>
@@ -67,8 +53,8 @@ function Gauge({ value = 75 }) {
 }
 
 export default function RightPanel() {
-  const { data, loading, error, reload } = useApi(() => api.getCrisis());
-  const [live, setLive] = useState(null);
+  const { data, loading, error, reload } = useApi<Crisis>(() => api.getCrisis());
+  const [live, setLive] = useState<Crisis | null>(null);
 
   // İlk veri geldikten sonra canlı akışa abone ol
   useEffect(() => {
@@ -83,11 +69,9 @@ export default function RightPanel() {
   return (
     <aside className="w-full xl:w-[360px] h-auto xl:h-full p-5 flex flex-col gap-4 z-10 overflow-y-auto shrink-0">
       <div className="glass rounded-2xl p-5">
-        <h3 className="font-semibold text-[15px] mb-3">
-          Yapay Zeka Kriz Tahmincisi
-        </h3>
+        <h3 className="font-semibold text-[15px] mb-3">Yapay Zeka Kriz Tahmincisi</h3>
         <div className="rounded-xl bg-black/30 p-4 border border-white/5">
-          {loading ? (
+          {loading || !view ? (
             <Skeleton className="h-[150px] w-full" />
           ) : error ? (
             <ErrorState onRetry={reload} />
@@ -115,7 +99,7 @@ export default function RightPanel() {
 
       <div className="glass rounded-2xl p-5">
         <h3 className="font-semibold text-[15px] mb-3">Tahmini Gecikmeler</h3>
-        {loading ? (
+        {loading || !data ? (
           <div className="space-y-2">
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-4 w-2/3" />
@@ -137,7 +121,7 @@ export default function RightPanel() {
 
       <div className="glass rounded-2xl p-5">
         <h3 className="font-semibold text-[15px] mb-3">Yapay Zeka Önerileri</h3>
-        {loading ? (
+        {loading || !data ? (
           <div className="space-y-2">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />

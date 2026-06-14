@@ -1,10 +1,21 @@
 import { Card } from "../components/Card";
 import { useEffect, useState } from "react";
-import { Bell, Globe, Moon, Shield, KeyRound } from "lucide-react";
+import { Bell, Globe, Moon, Shield, KeyRound, type LucideIcon } from "lucide-react";
 
 const STORAGE_KEY = "orbis.settings";
 
-function Toggle({ checked, onChange, label }) {
+type OptKey = "notify" | "dark" | "alerts" | "twofa";
+type Options = Record<OptKey, boolean>;
+
+function Toggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
   return (
     <button
       onClick={() => onChange(!checked)}
@@ -24,10 +35,10 @@ function Toggle({ checked, onChange, label }) {
   );
 }
 
-const DEFAULTS = { notify: true, dark: true, alerts: true, twofa: false };
+const DEFAULTS: Options = { notify: true, dark: true, alerts: true, twofa: false };
 
 export default function SettingsPage() {
-  const [opts, setOpts] = useState(() => {
+  const [opts, setOpts] = useState<Options>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       return saved ? { ...DEFAULTS, ...JSON.parse(saved) } : DEFAULTS;
@@ -44,7 +55,20 @@ export default function SettingsPage() {
     }
   }, [opts]);
 
-  const set = (k) => (v) => setOpts((o) => ({ ...o, [k]: v }));
+  const set = (k: OptKey) => (v: boolean) => setOpts((o) => ({ ...o, [k]: v }));
+
+  const prefs: { k: OptKey; icon: LucideIcon; label: string; desc: string }[] = [
+    { k: "notify", icon: Bell, label: "Bildirimler", desc: "Tüm push bildirimleri" },
+    { k: "dark", icon: Moon, label: "Koyu Mod", desc: "Komuta merkezi teması" },
+    { k: "alerts", icon: Shield, label: "Kriz Uyarıları", desc: "Yüksek riskli uçuş anında uyar" },
+    { k: "twofa", icon: KeyRound, label: "İki Adımlı Doğrulama", desc: "Giriş güvenliği" },
+  ];
+
+  const region: { label: string; value: string; icon: LucideIcon }[] = [
+    { label: "Dil", value: "Türkçe", icon: Globe },
+    { label: "Saat Dilimi", value: "GMT+3 (İstanbul)", icon: Globe },
+    { label: "Para Birimi", value: "TRY (₺)", icon: Globe },
+  ];
 
   return (
     <div className="flex-1 p-6 overflow-y-auto">
@@ -57,9 +81,7 @@ export default function SettingsPage() {
             <div>
               <div className="font-semibold">Ahmet Yılmaz</div>
               <div className="text-xs text-white/60">Operasyon Yöneticisi</div>
-              <div className="text-xs text-white/40 mt-1">
-                maden3438@gmail.com
-              </div>
+              <div className="text-xs text-white/40 mt-1">maden3438@gmail.com</div>
             </div>
           </div>
           <button className="w-full mt-2 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm">
@@ -68,12 +90,7 @@ export default function SettingsPage() {
         </Card>
 
         <Card title="Tercihler" className="lg:col-span-2">
-          {[
-            { k: "notify", icon: Bell, label: "Bildirimler", desc: "Tüm push bildirimleri" },
-            { k: "dark", icon: Moon, label: "Koyu Mod", desc: "Komuta merkezi teması" },
-            { k: "alerts", icon: Shield, label: "Kriz Uyarıları", desc: "Yüksek riskli uçuş anında uyar" },
-            { k: "twofa", icon: KeyRound, label: "İki Adımlı Doğrulama", desc: "Giriş güvenliği" },
-          ].map(({ k, icon: Icon, label, desc }) => (
+          {prefs.map(({ k, icon: Icon, label, desc }) => (
             <div
               key={k}
               className="flex items-center justify-between py-3 border-b border-white/5 last:border-0"
@@ -94,11 +111,7 @@ export default function SettingsPage() {
 
         <Card title="Dil ve Bölge" className="lg:col-span-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              { label: "Dil", value: "Türkçe", icon: Globe },
-              { label: "Saat Dilimi", value: "GMT+3 (İstanbul)", icon: Globe },
-              { label: "Para Birimi", value: "TRY (₺)", icon: Globe },
-            ].map(({ label, value, icon: Icon }) => (
+            {region.map(({ label, value, icon: Icon }) => (
               <div
                 key={label}
                 className="bg-white/5 rounded-xl p-4 border border-white/10"

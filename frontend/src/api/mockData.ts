@@ -1,7 +1,14 @@
 // Merkezi demo verisi. Backend hazır olduğunda bu dosyanın yerini gerçek
-// API yanıtları alacak; bileşenler yalnızca api/client.js üzerinden veriye erişir.
+// API yanıtları alacak; bileşenler yalnızca api/client.ts üzerinden veriye erişir.
+import type {
+  Crisis,
+  FleetItem,
+  StatItem,
+  ResourceUsageItem,
+  Analytics,
+} from "../types";
 
-export const crisis = {
+export const crisis: Crisis = {
   riskIndex: 75,
   delays: [
     { region: "Avrupa", level: "Yüksek", extraHours: 2.5 },
@@ -13,7 +20,7 @@ export const crisis = {
   ],
 };
 
-export const fleet = [
+export const fleet: FleetItem[] = [
   { code: "TC-JJP", model: "Boeing 777-300ER", status: "Uçuşta", route: "IST → JFK", progress: 64 },
   { code: "TC-LJA", model: "Airbus A350-900", status: "Uçuşta", route: "IST → NRT", progress: 32 },
   { code: "TC-JNR", model: "Boeing 737 MAX", status: "Bakımda", route: "IST Hangar 3", progress: 0 },
@@ -21,21 +28,21 @@ export const fleet = [
   { code: "TC-JOH", model: "Boeing 787-9", status: "Uçuşta", route: "IST → GRU", progress: 78 },
 ];
 
-export const resourceStats = [
+export const resourceStats: StatItem[] = [
   { label: "Aktif Uçak", value: "386", hint: "Filodaki toplam", accent: "text-white" },
   { label: "Görevdeki Mürettebat", value: "1,248", hint: "Pilot + Kabin", accent: "text-cyan-400" },
   { label: "Boş Otel Odası", value: "412", hint: "Tüm üsler", accent: "text-emerald-400" },
   { label: "Bakımda", value: "14", hint: "3 acil", accent: "text-thy" },
 ];
 
-export const resourceUsage = [
+export const resourceUsage: ResourceUsageItem[] = [
   { label: "Uçak kullanımı", v: 82, icon: "Plane" },
   { label: "Mürettebat", v: 76, icon: "Users" },
   { label: "Otel kontenjanı", v: 58, icon: "Hotel" },
   { label: "Bakım kapasitesi", v: 91, icon: "Wrench" },
 ];
 
-export const analytics = {
+export const analytics: Analytics = {
   stats: [
     { label: "Tahmin Doğruluğu", value: "94.2%", hint: "Son 30 gün", accent: "text-emerald-400" },
     { label: "Aktif Modeller", value: "18", hint: "3 yeni eğitildi", accent: "text-white" },

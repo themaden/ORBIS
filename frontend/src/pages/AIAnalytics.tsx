@@ -2,14 +2,28 @@ import { Card, Stat } from "../components/Card";
 import { Skeleton, ErrorState } from "../components/Skeleton";
 import { api } from "../api/client";
 import { useApi } from "../hooks/useApi";
-import { TrendingUp, AlertTriangle, Sparkles, Cpu } from "lucide-react";
+import {
+  TrendingUp,
+  AlertTriangle,
+  Sparkles,
+  Cpu,
+  type LucideIcon,
+} from "lucide-react";
+import type { Analytics } from "../types";
 
-const ICONS = { TrendingUp, AlertTriangle, Sparkles, Cpu };
+const ICONS: Record<string, LucideIcon> = {
+  TrendingUp,
+  AlertTriangle,
+  Sparkles,
+  Cpu,
+};
 
 export default function AIAnalytics() {
-  const { data, loading, error, reload } = useApi(() => api.getAnalytics());
+  const { data, loading, error, reload } = useApi<Analytics>(() =>
+    api.getAnalytics()
+  );
 
-  if (loading) {
+  if (loading || !data) {
     return (
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
