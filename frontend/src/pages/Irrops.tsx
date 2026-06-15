@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { AlertTriangle, Plane, Sparkles, Hotel, Utensils, RotateCcw, BadgeDollarSign } from "lucide-react";
+import { AlertTriangle, Plane, Sparkles, Hotel, Utensils, RotateCcw, BadgeDollarSign, Check } from "lucide-react";
 import { Card } from "../components/Card";
 import { Skeleton, ErrorState } from "../components/Skeleton";
 import { useApi } from "../hooks/useApi";
-import { getDisruptions, recommend } from "../api/irrops";
+import { getDisruptions, recommend, applyProposal } from "../api/irrops";
 import type { RecommendResult } from "../api/irrops";
 
 const loyaltyColor = (l: string) =>
@@ -23,6 +23,7 @@ export default function Irrops() {
   const [result, setResult] = useState<RecommendResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [recErr, setRecErr] = useState("");
+  const [applied, setApplied] = useState<Record<string, string>>({}); // passengerId -> toFlightNo
 
   const list = disruptions || [];
   const activeId = chosen ?? list[0]?.id ?? null;
@@ -39,6 +40,16 @@ export default function Irrops() {
       setRecErr("Öneri üretilemedi. Backend (4000) ve AI (8000) çalışıyor mu?");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const apply = async (passengerId: string, toFlightId: string, toFlightNo: string) => {
+    if (!activeId) return;
+    try {
+      await applyProposal(activeId, passengerId, toFlightId);
+      setApplied((a) => ({ ...a, [passengerId]: toFlightNo }));
+    } catch {
+      setRecErr("Uygulanamadı — backend/oturum kontrol edin.");
     }
   };
 
@@ -151,6 +162,19 @@ export default function Irrops() {
                             {p.care.amount > 0 && <span className="text-white/50">${p.care.amount}</span>}
                           </div>
                         )}
+                        {best &&
+                          (applied[p.passengerId] ? (
+                            <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium px-2.5 py-1.5">
+                              <Check size={14} /> {applied[p.passengerId]} uygulandı
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => apply(p.passengerId, best.toFlightId, best.toFlightNo)}
+                              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-thy hover:bg-red-600 transition shrink-0"
+                            >
+                              Uygula
+                            </button>
+                          ))}
                       </div>
                     </div>
                   );

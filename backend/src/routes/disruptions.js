@@ -79,6 +79,64 @@ disruptionsRouter.post("/:id/recommend", requireAuth, async (req, res) => {
   res.json(out);
 });
 
+// POST /api/disruptions/:id/apply — bir öneriyi uygula (yolcuyu yeni uçuşa taşı)
+// body: { passengerId, toFlightId }
+disruptionsRouter.post("/:id/apply", requireAuth, async (req, res) => {
+  const disruptionId = req.params.id;
+  const { passengerId, toFlightId } = req.body || {};
+  if (!passengerId || !toFlightId)
+    return res.status(400).json({ error: "passengerId ve toFlightId gerekli" });
+
+  const disruption = await prisma.disruption.findUnique({ where: { id: disruptionId } });
+  if (!disruption) return res.status(404).json({ error: "Olay bulunamadı" });
+
+  const passenger = await prisma.passenger.findUnique({ where: { id: passengerId } });
+  if (!passenger) return res.status(404).json({ error: "Yolcu bulunamadı" });
+
+  // Yolcunun iptal uçuştaki ana segmenti
+  const booking = await prisma.booking.findFirst({
+    where: { passengerId, flightId: disruption.flightId, segmentOrder: 1 },
+  });
+  if (!booking) return res.status(404).json({ error: "İlgili rezervasyon yok" });
+
+  const isBusiness = passenger.ticketClass === "BUSINESS";
+
+  await prisma.$transaction([
+    // bileti yeni uçuşa taşı
+    prisma.booking.update({ where: { id: booking.id }, data: { flightId: toFlightId } }),
+    // yeni uçuşta koltuğu doldur
+    prisma.flight.update({
+      where: { id: toFlightId },
+      data: isBusiness ? { businessBooked: { increment: 1 } } : { economyBooked: { increment: 1 } },
+    }),
+    // bu öneriyi uygulandı işaretle
+    prisma.rebookingProposal.updateMany({
+      where: { disruptionId, passengerId, toFlightId },
+      data: { status: "APPLIED" },
+    }),
+    // diğer önerileri reddet
+    prisma.rebookingProposal.updateMany({
+      where: { disruptionId, passengerId, toFlightId: { not: toFlightId } },
+      data: { status: "REJECTED" },
+    }),
+    // care aksiyonunu onayla
+    prisma.careAction.updateMany({
+      where: { disruptionId, passengerId },
+      data: { status: "APPROVED" },
+    }),
+    prisma.auditLog.create({
+      data: {
+        actor: req.user?.name || "bilinmeyen",
+        action: "proposal.apply",
+        entity: `Disruption:${disruptionId}`,
+        meta: { passengerId, toFlightId },
+      },
+    }),
+  ]);
+
+  res.json({ ok: true, passengerId, toFlightId });
+});
+
 // GET /api/disruptions/:id/proposals — kayıtlı öneriler (yolcu + uçuş bilgisiyle)
 disruptionsRouter.get("/:id/proposals", async (req, res) => {
   const proposals = await prisma.rebookingProposal.findMany({

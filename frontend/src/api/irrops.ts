@@ -61,3 +61,9 @@ export const getKpi = () => api<KpiSummary>("/api/kpi/summary");
 export const getDisruptions = () => api<DisruptionDTO[]>("/api/disruptions");
 export const recommend = (id: string) =>
   api<RecommendResult>(`/api/disruptions/${id}/recommend`, { method: "POST", auth: true });
+export const applyProposal = (id: string, passengerId: string, toFlightId: string) =>
+  api<{ ok: boolean }>(`/api/disruptions/${id}/apply`, {
+    method: "POST",
+    auth: true,
+    body: { passengerId, toFlightId },
+  });
