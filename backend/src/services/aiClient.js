@@ -1,37 +1,31 @@
 // AI servisi (FastAPI) istemcisi.
-// Servis erişilemezse basit bir yerel tahmine düşer (graceful fallback).
+// Servis erişilemezse basit bir yerel hesaba düşer (graceful fallback).
 
 const AI_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
 
-export async function getCrisisForecast(payload) {
+// IRROPS risk skoru — AI servisinden, kapalıysa yerel heuristik
+export async function getRiskScore(snapshot) {
   try {
-    const r = await fetch(`${AI_URL}/predict`, {
+    const r = await fetch(`${AI_URL}/risk/score`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(snapshot),
       signal: AbortSignal.timeout(3000),
     });
     if (!r.ok) throw new Error(`AI ${r.status}`);
     return await r.json();
   } catch {
-    // AI servisi henüz hazır değil — yer tutucu tahmin döndür
-    return localFallback(payload);
+    const { totalFlights = 1, cancelled = 0, delayed = 0 } = snapshot;
+    const riskIndex = Math.min(
+      95,
+      Math.round(((cancelled * 2 + delayed) / Math.max(totalFlights, 1)) * 100) + 30
+    );
+    return {
+      riskIndex,
+      level: riskIndex >= 66 ? "Yüksek" : riskIndex >= 40 ? "Orta" : "Düşük",
+      factors: [],
+      suggestions: [],
+      source: "fallback",
+    };
   }
-}
-
-function localFallback({ flights = [] }) {
-  const totalDelay = flights.reduce((s, f) => s + (f.delayMin || 0), 0);
-  const riskIndex = Math.min(95, 40 + Math.round(totalDelay / 10));
-  return {
-    source: "fallback",
-    riskIndex,
-    delays: [
-      { region: "Avrupa", level: "Yüksek", extraHours: 2.5 },
-      { region: "Asya", level: "Orta", extraHours: 1 },
-    ],
-    suggestions: [
-      "Yaklaşan fırtına nedeniyle Londra'da 50 otel odasını önceden ayırın.",
-      "Hava sistemini aşmak için uçuşları Orta Avrupa üzerinden yeniden yönlendirin.",
-    ],
-  };
 }

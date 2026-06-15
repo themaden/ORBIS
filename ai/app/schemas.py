@@ -1,30 +1,39 @@
-"""ORBIS AI servisi — Pydantic şemaları.
-
-İstek/yanıt sözleşmesi backend/src/services/aiClient.js ile uyumludur.
-"""
+"""ORBIS AI — IRROPS risk skorlama şemaları (Pydantic)."""
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
 
-class Flight(BaseModel):
-    code: str = Field(..., examples=["TK1985"])
-    delayMin: int = Field(0, ge=0, description="Dakika cinsinden gecikme")
-    region: str | None = Field(None, examples=["Avrupa"])
+class RiskRequest(BaseModel):
+    totalFlights: int = Field(0, ge=0)
+    cancelled: int = Field(0, ge=0)
+    delayed: int = Field(0, ge=0)
+    avgLoadFactor: float = Field(0.8, ge=0, le=1)  # ortalama doluluk
+    weatherSeverity: float = Field(0.3, ge=0, le=1)  # hava şiddeti
+    hubCongestion: float = Field(0.4, ge=0, le=1)  # hub yoğunluğu
 
 
-class PredictRequest(BaseModel):
-    flights: list[Flight] = Field(default_factory=list)
+class RiskFactor(BaseModel):
+    name: str
+    contribution: int  # riskIndex'e katkı (açıklanabilirlik)
 
 
-class Delay(BaseModel):
-    region: str
-    level: str  # "Düşük" | "Orta" | "Yüksek"
-    extraHours: float
-
-
-class PredictResponse(BaseModel):
-    source: str
-    riskIndex: int = Field(..., ge=0, le=100)
-    delays: list[Delay]
+class RiskResponse(BaseModel):
+    riskIndex: int
+    level: str  # Düşük / Orta / Yüksek
+    factors: list[RiskFactor]
     suggestions: list[str]
+    source: str = "orbis-ai"
+
+
+class DelayRequest(BaseModel):
+    departureHour: int = Field(12, ge=0, le=23)
+    loadFactor: float = Field(0.85, ge=0, le=1)
+    routeHaulHours: float = Field(3, ge=0)
+    weatherSeverity: float = Field(0.3, ge=0, le=1)
+
+
+class DelayResponse(BaseModel):
+    delayProbability: float  # 0-1
+    expectedDelayMin: int
+    band: str  # Düşük / Orta / Yüksek

@@ -1,86 +1,51 @@
-# 🧠 ORBIS — AI Servisi (Kriz Tahmini)
+# 🧠 ORBIS — AI Servisi (IRROPS Risk & Gecikme)
 
-> **Durum:** 🚧 İskelet. Şimdilik sezgisel (heuristic) bir yer tutucu model çalışır;
-> ileride gerçek bir ML modeli (scikit-learn / PyTorch) ile değiştirilecek.
+> **Durum:** ✅ Çalışır. Şeffaf, ağırlıklı lojistik model (saf Python) — her
+> faktörün katkısı açıklanabilir döner. İleride scikit-learn ile eğitilmiş
+> modelle değiştirilebilir.
 
-"Aksaklık Risk Endeksi"ni, bölgesel gecikme tahminlerini ve operasyonel önerileri
-üreten yapay zeka servisidir. **backend** bu servisi `POST /predict` ile çağırır.
+"Aksaklık Risk Endeksi"ni ve gecikme tahminini üreten servis. **backend**
+`/api/kpi/summary` içinde bu servisin `POST /risk/score` ucunu çağırır
+(servis kapalıysa yerel fallback devreye girer).
 
-## 🛠️ Seçilen Teknoloji
-
-| Konu | Tercih | Neden |
-|------|--------|-------|
-| Dil | **Python 3.11+** | ML/veri bilimi ekosisteminin standardı |
-| Çatı | **FastAPI** | Hızlı, async, otomatik OpenAPI dokümanı |
-| Şema | **Pydantic** | Tip güvenli istek/yanıt doğrulaması |
-| Sunucu | **Uvicorn** | ASGI sunucusu |
-| ML (ileride) | **scikit-learn / PyTorch** | Tahmin modeli eğitimi |
+## 🛠️ Teknoloji
+Python 3.11+ · FastAPI · Pydantic · Uvicorn (ML için ileride scikit-learn)
 
 ## 🚀 Kurulum
 
 ```bash
 cd ai
 python -m venv .venv
-# Windows:  .venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
+.venv\Scripts\activate          # Windows  (macOS/Linux: source .venv/bin/activate)
 pip install -r requirements.txt
-uvicorn app.main:app --reload   # http://localhost:8000
+uvicorn app.main:app --reload --port 8000   # http://localhost:8000/docs
 ```
-
-Etkileşimli API dokümanı: `http://localhost:8000/docs`
 
 ## 🔌 Uç Noktalar
 
 | Metot | Yol | Açıklama |
 |-------|-----|----------|
-| `GET` | `/health` | Sağlık kontrolü |
-| `POST` | `/predict` | Kriz tahmini üretir |
+| GET | `/health` | Sağlık kontrolü |
+| POST | `/risk/score` | IRROPS risk endeksi (0-100) + faktör dağılımı + öneri |
+| POST | `/predict/delay` | Uçuş gecikme olasılığı + beklenen dakika |
 
-### `POST /predict` — sözleşme
-
-İstek:
-```json
-{
-  "flights": [
-    { "code": "TK1985", "delayMin": 30, "region": "Avrupa" }
-  ]
-}
-```
-
-Yanıt:
-```json
-{
-  "source": "heuristic-skeleton",
-  "riskIndex": 75,
-  "delays": [
-    { "region": "Avrupa", "level": "Yüksek", "extraHours": 2.5 },
-    { "region": "Asya", "level": "Orta", "extraHours": 1 }
-  ],
-  "suggestions": [
-    "Yaklaşan fırtına nedeniyle Londra'da 50 otel odasını önceden ayırın.",
-    "Hava sistemini aşmak için uçuşları Orta Avrupa üzerinden yeniden yönlendirin."
-  ]
-}
-```
-
-> Bu sözleşme `backend/src/services/aiClient.js` ile birebir uyumludur.
+### `POST /risk/score`
+İstek: `{ totalFlights, cancelled, delayed, avgLoadFactor, weatherSeverity, hubCongestion }`
+Yanıt: `{ riskIndex, level, factors:[{name,contribution}], suggestions, source }`
 
 ## 📂 Yapı
 
 ```
 ai/
 ├── app/
-│   ├── __init__.py
-│   ├── main.py          # FastAPI app + uç noktalar
-│   ├── schemas.py       # Pydantic modelleri
-│   └── predictor.py     # Yer tutucu tahmin mantığı
+│   ├── main.py        # FastAPI + uç noktalar
+│   ├── schemas.py     # Pydantic modelleri
+│   └── model.py       # risk & gecikme mantığı (şeffaf/açıklanabilir)
 ├── requirements.txt
 └── .env.example
 ```
 
 ## ✅ Yapılacaklar
-
-- [ ] Gerçek özellik mühendisliği (hava durumu, yoğunluk, tarihsel gecikme)
-- [ ] ML modeli eğitimi (scikit-learn ile başlangıç)
-- [ ] Model versiyonlama ve değerlendirme metrikleri
-- [ ] Tahmin önbellekleme
+- [ ] Gerçek ML modeli (scikit-learn) — geçmiş veriden gecikme tahmini
+- [ ] Yolcu öneri motorunu (şu an backend'de) buraya taşıma opsiyonu
+- [ ] Hava durumu API entegrasyonu (`WEATHER_API_KEY`)
