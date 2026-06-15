@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { recommendForDisruption } from "../services/recommend.js";
 
 export const disruptionsRouter = Router();
 
@@ -70,4 +71,24 @@ disruptionsRouter.get("/:id/passengers", async (req, res) => {
     affectedCount: passengers.length,
     passengers,
   });
+});
+
+// POST /api/disruptions/:id/recommend — öneri motorunu çalıştır (kaydeder + döner)
+disruptionsRouter.post("/:id/recommend", requireAuth, async (req, res) => {
+  const out = await recommendForDisruption(req.params.id);
+  res.json(out);
+});
+
+// GET /api/disruptions/:id/proposals — kayıtlı öneriler (yolcu + uçuş bilgisiyle)
+disruptionsRouter.get("/:id/proposals", async (req, res) => {
+  const proposals = await prisma.rebookingProposal.findMany({
+    where: { disruptionId: req.params.id },
+    include: { passenger: true, toFlight: true },
+    orderBy: [{ score: "desc" }, { rank: "asc" }],
+  });
+  const care = await prisma.careAction.findMany({
+    where: { disruptionId: req.params.id },
+    include: { passenger: true },
+  });
+  res.json({ proposals, care });
 });
