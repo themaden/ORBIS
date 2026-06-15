@@ -2,14 +2,18 @@ import express from "express";
 import "express-async-errors"; // async route hatalarını error middleware'e taşır
 import cors from "cors";
 import dotenv from "dotenv";
+import { createServer } from "node:http";
+import { Server } from "socket.io";
 import { router as apiRouter } from "./routes/index.js";
+import { computeKpi } from "./services/kpiService.js";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+const ORIGIN = process.env.FRONTEND_ORIGIN || "*";
 
-app.use(cors({ origin: process.env.FRONTEND_ORIGIN || "*" }));
+app.use(cors({ origin: ORIGIN }));
 app.use(express.json());
 
 // Sağlık kontrolü
@@ -33,6 +37,29 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🛫 ORBIS backend çalışıyor → http://localhost:${PORT}`);
+// HTTP + WebSocket sunucusu
+const httpServer = createServer(app);
+const io = new Server(httpServer, { cors: { origin: ORIGIN } });
+
+io.on("connection", async (socket) => {
+  // Bağlanan istemciye anlık KPI gönder
+  try {
+    socket.emit("kpi", await computeKpi());
+  } catch {
+    /* DB/AI kapalı olabilir */
+  }
+});
+
+// Tüm istemcilere periyodik canlı KPI yayını
+setInterval(async () => {
+  if (io.engine.clientsCount === 0) return;
+  try {
+    io.emit("kpi", await computeKpi());
+  } catch {
+    /* sessiz geç */
+  }
+}, 5000);
+
+httpServer.listen(PORT, () => {
+  console.log(`🛫 ORBIS backend + WebSocket çalışıyor → http://localhost:${PORT}`);
 });

@@ -37,7 +37,14 @@ app.add_middleware(
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "service": "orbis-ai", "model": "weighted-logistic"}
+    info = {"status": "ok", "service": "orbis-ai", "risk": "weighted-logistic", "assign": "min-cost-flow"}
+    try:
+        from .ml import MODEL
+
+        info["delayModel"] = f"random-forest (R²={MODEL.train_r2})"
+    except Exception:
+        info["delayModel"] = "heuristic"
+    return info
 
 
 @app.post("/risk/score", response_model=RiskResponse)

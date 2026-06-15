@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { getKpi } from "../api/irrops";
+import type { KpiSummary } from "../api/irrops";
+import { getSocket } from "../api/socket";
 import { useApi } from "../hooks/useApi";
 import { Skeleton, ErrorState } from "./Skeleton";
 import { polar, arcPath as arc, valueToRatio } from "../lib/gauge";
@@ -75,9 +77,23 @@ export default function RightPanel() {
   const { data, loading, error, reload } = useApi<CrisisView>(loadCrisis);
   const [live, setLive] = useState<Crisis | null>(null);
 
-  // Backend bağlı değilse mock canlı akışa abone ol (animasyon hissi)
+  // Backend bağlıysa WebSocket'ten canlı KPI; değilse mock animasyon
   useEffect(() => {
-    if (!data || data.source === "backend") return;
+    if (!data) return;
+    if (data.source === "backend") {
+      const s = getSocket();
+      const onKpi = (k: KpiSummary) =>
+        setLive({
+          riskIndex: k.riskIndex,
+          delays: data.delays,
+          suggestions: k.riskSuggestions?.length ? k.riskSuggestions : data.suggestions,
+          updatedAt: Date.now(),
+        });
+      s.on("kpi", onKpi);
+      return () => {
+        s.off("kpi", onKpi);
+      };
+    }
     const unsub = api.subscribeCrisis(setLive);
     return unsub;
   }, [data]);
@@ -86,7 +102,9 @@ export default function RightPanel() {
   const updatedAt = live?.updatedAt;
   const liveLabel =
     data?.source === "backend"
-      ? "Canlı · backend (AI)"
+      ? updatedAt
+        ? `Canlı · WebSocket · ${new Date(updatedAt).toLocaleTimeString("tr-TR")}`
+        : "Canlı · WebSocket (AI)"
       : updatedAt
       ? `Canlı · ${new Date(updatedAt).toLocaleTimeString("tr-TR")}`
       : "Canlı veri akışı";

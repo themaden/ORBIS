@@ -65,17 +65,25 @@ def score_risk(r: RiskRequest) -> RiskResponse:
 
 
 def predict_delay(r: DelayRequest) -> DelayResponse:
-    # Akşam zirvesi + yüksek doluluk + uzun menzil + kötü hava -> daha çok gecikme
-    peak = 1.0 if 16 <= r.departureHour <= 21 else 0.4 if 6 <= r.departureHour <= 9 else 0.1
-    z = (
-        -1.4
-        + peak * 1.1
-        + r.loadFactor * 1.0
-        + min(r.routeHaulHours / 12, 1.0) * 0.8
-        + r.weatherSeverity * 2.2
-    )
-    prob = _sigmoid(z)
-    expected = round(prob * (30 + r.weatherSeverity * 150 + r.routeHaulHours * 4))
+    # Eğitilmiş RandomForest modeli (varsa); yoksa sezgisel fallback
+    try:
+        from .ml import MODEL
+
+        prob, expected = MODEL.predict(
+            r.departureHour, r.loadFactor, r.routeHaulHours, r.weatherSeverity
+        )
+    except Exception:
+        peak = 1.0 if 16 <= r.departureHour <= 21 else 0.4 if 6 <= r.departureHour <= 9 else 0.1
+        z = (
+            -1.4
+            + peak * 1.1
+            + r.loadFactor * 1.0
+            + min(r.routeHaulHours / 12, 1.0) * 0.8
+            + r.weatherSeverity * 2.2
+        )
+        prob = _sigmoid(z)
+        expected = round(prob * (30 + r.weatherSeverity * 150 + r.routeHaulHours * 4))
+
     band = "Yüksek" if prob >= 0.6 else "Orta" if prob >= 0.35 else "Düşük"
     return DelayResponse(
         delayProbability=round(prob, 3), expectedDelayMin=expected, band=band

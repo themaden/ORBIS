@@ -81,7 +81,10 @@ Her klasörün kendi `README.md` dosyasında ayrıntılı kurulum vardır.
 - [x] IRROPS öneri motoru (öncelik skoru + kapasite-duyarlı atama + care)
 - [x] AI risk servisi (FastAPI) ve backend entegrasyonu
 - [x] Frontend ↔ Backend ↔ AI uçtan uca (aksaklık → öneri → uygula)
-- [ ] OR-Tools ile optimal atama · WebSocket canlı akış · bulut dağıtımı
+- [x] OR-Tools ile optimal atama (min-cost flow)
+- [x] WebSocket ile canlı KPI akışı (Socket.IO)
+- [x] ML gecikme modeli (scikit-learn RandomForest)
+- [ ] Bulut dağıtımı (Vercel + Railway/Fly + managed Postgres)
 
 ## 📄 Lisans
 
