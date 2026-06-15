@@ -8,6 +8,7 @@ import { NAV } from "./nav";
 
 // Sayfalar tembel yüklenir (her sayfa ayrı bundle parçası)
 const Operations = lazy(() => import("./pages/Operations"));
+const Irrops = lazy(() => import("./pages/Irrops"));
 const AIAnalytics = lazy(() => import("./pages/AIAnalytics"));
 const Resources = lazy(() => import("./pages/Resources"));
 const Communications = lazy(() => import("./pages/Communications"));
@@ -72,6 +73,7 @@ export default function App() {
         }
       >
         <Route path="/" element={<Operations />} />
+        <Route path="/irrops" element={<Irrops />} />
         <Route path="/analiz" element={<AIAnalytics />} />
         <Route path="/kaynaklar" element={<Resources />} />
         <Route path="/iletisim" element={<Communications />} />

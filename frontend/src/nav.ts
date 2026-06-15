@@ -1,4 +1,4 @@
-import { Plane, BrainCircuit, Users, MessageSquare, Settings } from "lucide-react";
+import { Plane, BrainCircuit, Users, MessageSquare, Settings, AlertTriangle } from "lucide-react";
 import type { NavItem } from "./types";
 
 // Sidebar ve Layout (başlık) tarafından paylaşılan tek navigasyon kaynağı
@@ -8,6 +8,12 @@ export const NAV: NavItem[] = [
     title: "Global Operasyon Komuta Merkezi",
     label: "Gerçek Zamanlı\nOperasyonlar",
     icon: Plane,
+  },
+  {
+    path: "/irrops",
+    title: "IRROPS — Aksaklık Yönetimi",
+    label: "IRROPS / Aksaklık",
+    icon: AlertTriangle,
   },
   {
     path: "/analiz",
