@@ -54,6 +54,7 @@ export interface RecommendResult {
   flightNo: string;
   affectedCount: number;
   alternativeCount: number;
+  method: string;
   passengers: RecommendedPassenger[];
 }
 

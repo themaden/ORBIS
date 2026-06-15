@@ -125,6 +125,10 @@ export default function Irrops() {
               <Stat label="Alternatif Uçuş" value={result.alternativeCount} />
               <Stat label="Üretilen Öneri" value={result.passengers.length} />
             </div>
+            <div className="flex items-center gap-2 text-xs text-white/55">
+              <Sparkles size={13} className="text-thy" />
+              Atama yöntemi: <span className="text-white/85 font-medium">{result.method}</span>
+            </div>
 
             <Card title="Öncelik Sıralı Yeniden Yerleştirme Önerileri">
               <div className="space-y-3">

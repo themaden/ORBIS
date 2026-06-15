@@ -1,7 +1,8 @@
 // ORBIS — IRROPS yeniden yerleştirme (re-accommodation) öneri motoru
-// Kural bazlı öncelik skoru + kapasite-duyarlı açgözlü atama + care önerileri.
-// (Şeffaf/açıklanabilir: her öneride gerekçe döner.)
+// Kural bazlı öncelik skoru + AI optimal atama (min-cost flow), AI kapalıysa
+// kapasite-duyarlı açgözlü atamaya düşer. Her öneride şeffaf gerekçe döner.
 import { prisma } from "../db.js";
+import { getOptimalAssignment } from "./aiClient.js";
 
 const LOYALTY_W = { ELITE_PLUS: 1, ELITE: 0.7, CLASSIC: 0.4, NONE: 0.1 };
 const CLASS_W = { BUSINESS: 1, ECONOMY: 0.4 };
@@ -53,13 +54,11 @@ export async function recommendForDisruption(disruptionId) {
   const destId = orig.arrAirportId;
   const w = await loadWeights();
 
-  // Etkilenen yolcular (iptal uçuşun 1. segmenti)
   const bookings = await prisma.booking.findMany({
     where: { flightId: orig.id, segmentOrder: 1 },
     include: { passenger: true },
   });
 
-  // Aday alternatif uçuşlar: aynı varış, iptal değil, sonra kalkan
   const alts = await prisma.flight.findMany({
     where: {
       arrAirportId: destId,
@@ -70,19 +69,18 @@ export async function recommendForDisruption(disruptionId) {
     orderBy: { scheduledDep: "asc" },
   });
 
-  // Kalan kapasite haritası (sınıf bazlı)
-  const cap = {};
+  // Orijinal (sınıf bazlı) boş koltuk
+  const avail = {};
   for (const a of alts) {
-    cap[a.id] = {
+    avail[a.id] = {
       ECONOMY: Math.max(0, a.economyCap - a.economyBooked),
       BUSINESS: Math.max(0, a.businessCap - a.businessBooked),
       addedDelayMin: Math.round((a.scheduledDep - orig.scheduledDep) / 60000),
       flightNo: a.flightNo,
-      scheduledDep: a.scheduledDep,
     };
   }
 
-  // Yolcuları öncelik skoruna göre sırala
+  // Öncelik skoru
   const scored = await Promise.all(
     bookings.map(async (b) => {
       const connection = await prisma.booking.findFirst({
@@ -103,43 +101,76 @@ export async function recommendForDisruption(disruptionId) {
   );
   scored.sort((a, b) => b.score - a.score);
 
-  // Açgözlü atama: yüksek öncelikli yolcudan başla
-  const proposals = []; // DB'ye yazılacak satırlar
+  // AI optimal atama (min-cost flow); kapalıysa null
+  const optimal = await getOptimalAssignment({
+    passengers: scored.map((p) => ({
+      passengerId: p.passengerId,
+      ticketClass: p.ticketClass,
+      priority: p.score,
+    })),
+    alternatives: alts.map((a) => ({
+      flightId: a.id,
+      economyAvail: avail[a.id].ECONOMY,
+      businessAvail: avail[a.id].BUSINESS,
+      addedDelayMin: avail[a.id].addedDelayMin,
+    })),
+  });
+  const optimalMap = optimal
+    ? Object.fromEntries(optimal.assignments.filter((a) => a.toFlightId).map((a) => [a.passengerId, a.toFlightId]))
+    : null;
+  const method = optimalMap ? "optimal (min-cost flow)" : "greedy (heuristik)";
+
+  // Greedy fallback için değişebilir kapasite
+  const greedyCap = JSON.parse(JSON.stringify(avail));
+
+  const proposals = [];
   const result = [];
 
   for (const pax of scored) {
-    // Sınıfına uygun, kapasitesi olan alternatifleri gecikmeye göre sırala
-    const usable = alts
-      .filter((a) => cap[a.id][pax.ticketClass] > 0)
-      .sort((a, b) => cap[a.id].addedDelayMin - cap[b.id].addedDelayMin)
-      .slice(0, 3);
+    const classKey = pax.ticketClass;
+    const eligible = alts
+      .filter((a) => avail[a.id][classKey] > 0)
+      .sort((a, b) => avail[a.id].addedDelayMin - avail[b.id].addedDelayMin);
 
-    const options = usable.map((a, idx) => {
-      const c = cap[a.id];
-      const fit = Math.max(0, 100 - c.addedDelayMin * 0.08);
+    // Seçilen uçuş: AI varsa optimal, yoksa açgözlü
+    let chosenId = null;
+    if (optimalMap) {
+      chosenId = optimalMap[pax.passengerId] || null;
+    } else {
+      const g = eligible.find((a) => greedyCap[a.id][classKey] > 0);
+      if (g) {
+        chosenId = g.id;
+        greedyCap[g.id][classKey] -= 1;
+      }
+    }
+
+    // Gösterim seçenekleri: seçilen önce, sonra gecikmeye göre (top 3)
+    let ordered = eligible;
+    if (chosenId) {
+      ordered = [alts.find((a) => a.id === chosenId), ...eligible.filter((a) => a.id !== chosenId)].filter(Boolean);
+    }
+    ordered = ordered.slice(0, 3);
+
+    const options = ordered.map((a, idx) => {
+      const v = avail[a.id];
+      const fit = Math.max(0, 100 - v.addedDelayMin * 0.08);
       const connNote = pax.hasConnection
-        ? c.addedDelayMin <= 180
+        ? v.addedDelayMin <= 180
           ? " · bağlantı korunabilir"
           : " · bağlantı riskli"
         : "";
       return {
         toFlightId: a.id,
-        toFlightNo: c.flightNo,
+        toFlightNo: v.flightNo,
         rank: idx + 1,
-        addedDelayMin: c.addedDelayMin,
+        addedDelayMin: v.addedDelayMin,
         fitScore: Math.round(fit),
-        rationale: `${c.flightNo} ile +${c.addedDelayMin} dk · ${TR_LOYALTY[pax.loyalty]}, ${TR_CLASS[pax.ticketClass]}${connNote}`,
+        rationale: `${v.flightNo} ile +${v.addedDelayMin} dk · ${TR_LOYALTY[pax.loyalty]}, ${TR_CLASS[pax.ticketClass]}${connNote}`,
       };
     });
 
-    // En iyi seçeneği gerçekten ata (kapasiteyi düş)
-    if (options.length) {
-      cap[options[0].toFlightId][pax.ticketClass] -= 1;
-    }
-
     const best = options[0];
     const care = careFor(best?.addedDelayMin ?? Infinity, !!best, w);
-
     result.push({ ...pax, options, care });
 
     for (const o of options) {
@@ -156,11 +187,9 @@ export async function recommendForDisruption(disruptionId) {
     }
   }
 
-  // Kalıcılaştır: önce eski önerileri temizle
   await prisma.rebookingProposal.deleteMany({ where: { disruptionId } });
   if (proposals.length) await prisma.rebookingProposal.createMany({ data: proposals });
 
-  // Care önerilerini kaydet
   await prisma.careAction.deleteMany({ where: { disruptionId } });
   const careRows = result
     .filter((r) => r.care)
@@ -178,6 +207,7 @@ export async function recommendForDisruption(disruptionId) {
     flightNo: orig.flightNo,
     affectedCount: scored.length,
     alternativeCount: alts.length,
+    method,
     passengers: result,
   };
 }

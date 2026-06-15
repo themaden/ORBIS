@@ -37,3 +37,34 @@ class DelayResponse(BaseModel):
     delayProbability: float  # 0-1
     expectedDelayMin: int
     band: str  # Düşük / Orta / Yüksek
+
+
+# ---- Optimal atama (min-cost flow) ----
+class AssignPassenger(BaseModel):
+    passengerId: str
+    ticketClass: str  # ECONOMY | BUSINESS
+    priority: int = Field(50, ge=0, le=100)
+
+
+class AssignAlternative(BaseModel):
+    flightId: str
+    economyAvail: int = 0
+    businessAvail: int = 0
+    addedDelayMin: int = 0
+
+
+class AssignRequest(BaseModel):
+    passengers: list[AssignPassenger]
+    alternatives: list[AssignAlternative]
+
+
+class Assignment(BaseModel):
+    passengerId: str
+    toFlightId: str | None = None
+    addedDelayMin: int | None = None
+
+
+class AssignResponse(BaseModel):
+    assignments: list[Assignment]
+    assignedCount: int
+    method: str = "min-cost-flow"

@@ -10,8 +10,16 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .assign import optimal_assign
 from .model import predict_delay, score_risk
-from .schemas import DelayRequest, DelayResponse, RiskRequest, RiskResponse
+from .schemas import (
+    AssignRequest,
+    AssignResponse,
+    DelayRequest,
+    DelayResponse,
+    RiskRequest,
+    RiskResponse,
+)
 
 app = FastAPI(
     title="ORBIS AI",
@@ -40,3 +48,8 @@ def risk(req: RiskRequest) -> RiskResponse:
 @app.post("/predict/delay", response_model=DelayResponse)
 def delay(req: DelayRequest) -> DelayResponse:
     return predict_delay(req)
+
+
+@app.post("/assign", response_model=AssignResponse)
+def assign(req: AssignRequest) -> AssignResponse:
+    return optimal_assign(req)

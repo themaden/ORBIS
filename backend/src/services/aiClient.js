@@ -3,6 +3,22 @@
 
 const AI_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
 
+// Optimal yolcu→uçuş ataması (AI min-cost flow). Kapalıysa null döner (greedy'ye düşülür).
+export async function getOptimalAssignment(payload) {
+  try {
+    const r = await fetch(`${AI_URL}/assign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!r.ok) throw new Error(`AI ${r.status}`);
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
 // IRROPS risk skoru — AI servisinden, kapalıysa yerel heuristik
 export async function getRiskScore(snapshot) {
   try {
