@@ -23,10 +23,11 @@ html, body, #root {
 
 .bg-command {
   background:
-    radial-gradient(1200px 950px at 100% 48%, rgba(120,14,22,0.26), transparent 58%),
-    radial-gradient(750px 650px at 100% 100%, rgba(115,11,19,0.30), transparent 55%),
-    radial-gradient(900px 700px at 90% 4%, rgba(85,9,15,0.16), transparent 55%),
-    #070708;
+    radial-gradient(1400px 1150px at 110% 50%, rgba(124,17,27,0.45), rgba(58,8,14,0.18) 42%, transparent 68%),
+    radial-gradient(820px 640px at 96% 100%, rgba(122,14,22,0.38), transparent 60%),
+    radial-gradient(1000px 520px at 58% 110%, rgba(78,10,16,0.22), transparent 60%),
+    radial-gradient(700px 600px at 100% 0%, rgba(80,10,16,0.20), transparent 60%),
+    #060507;
 }
 
 .route-dash {
