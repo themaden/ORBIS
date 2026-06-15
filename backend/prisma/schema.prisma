@@ -1,0 +1,236 @@
+// ORBIS — IRROPS Karar Destek Sistemi · Veri modeli
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enum'lar ----------
+enum FlightStatus {
+  PLANNED // Planlı
+  DELAYED // Gecikme
+  CANCELLED // İptal
+  DEPARTED // Kalktı
+  ARRIVED // İndi
+  BOARDING // Kapıda
+}
+
+enum TicketClass {
+  ECONOMY // Y
+  BUSINESS // C/J
+}
+
+enum LoyaltyTier {
+  NONE
+  CLASSIC
+  ELITE
+  ELITE_PLUS
+}
+
+enum SpecialNeed {
+  NONE
+  UM // refakatsiz çocuk
+  WCHR // tekerlekli sandalye
+  MEDICAL // tıbbi
+  VIP
+}
+
+enum DisruptionType {
+  WEATHER // hava
+  TECHNICAL // teknik arıza
+  CREW // ekip
+  AIRPORT // havalimanı/slot
+}
+
+enum ProposalStatus {
+  SUGGESTED // öneri
+  ACCEPTED // onaylandı
+  APPLIED // uygulandı
+  REJECTED // reddedildi
+}
+
+enum CareType {
+  MEAL // ikram
+  HOTEL // otel
+  TRANSFER // transfer
+  REFUND // ücret iadesi
+  COMPENSATION // tazminat
+}
+
+enum CareStatus {
+  SUGGESTED
+  APPROVED
+  FULFILLED
+}
+
+enum UserRole {
+  IOCC
+  PASSENGER_CARE
+  HUB_CONTROL
+  ADMIN
+}
+
+// ---------- Çekirdek varlıklar ----------
+model Airport {
+  id        String  @id @default(cuid())
+  iata      String  @unique // IST, JFK...
+  city      String
+  country   String
+  lat       Float
+  lon       Float
+  isHub     Boolean @default(false)
+  mctMin    Int     @default(45) // minimum bağlantı süresi (dk)
+
+  departures Flight[] @relation("DepAirport")
+  arrivals   Flight[] @relation("ArrAirport")
+}
+
+model Aircraft {
+  id           String   @id @default(cuid())
+  tail         String   @unique // TC-JJP
+  model        String
+  economySeats Int
+  businessSeats Int
+  flights      Flight[]
+}
+
+model Flight {
+  id            String       @id @default(cuid())
+  flightNo      String // TK1985
+  depAirport    Airport      @relation("DepAirport", fields: [depAirportId], references: [id])
+  depAirportId  String
+  arrAirport    Airport      @relation("ArrAirport", fields: [arrAirportId], references: [id])
+  arrAirportId  String
+  scheduledDep  DateTime
+  scheduledArr  DateTime
+  estimatedDep  DateTime?
+  estimatedArr  DateTime?
+  status        FlightStatus @default(PLANNED)
+  delayMin      Int          @default(0)
+  aircraft      Aircraft?    @relation(fields: [aircraftId], references: [id])
+  aircraftId    String?
+  economyCap    Int          @default(150)
+  businessCap   Int          @default(20)
+  economyBooked Int          @default(0)
+  businessBooked Int         @default(0)
+
+  bookings          Booking[]
+  disruptions       Disruption[]
+  proposalsFrom     RebookingProposal[] @relation("FromFlight")
+  proposalsTo       RebookingProposal[] @relation("ToFlight")
+
+  @@index([status])
+  @@index([scheduledDep])
+}
+
+model Passenger {
+  id          String      @id @default(cuid())
+  fullName    String
+  ticketClass TicketClass @default(ECONOMY)
+  loyalty     LoyaltyTier @default(NONE)
+  specialNeed SpecialNeed @default(NONE)
+  email       String?
+  phone       String?
+
+  bookings   Booking[]
+  proposals  RebookingProposal[]
+  careActions CareAction[]
+}
+
+// Bir PNR segmenti (yolcunun bir uçuştaki yeri)
+model Booking {
+  id           String     @id @default(cuid())
+  pnr          String
+  passenger    Passenger  @relation(fields: [passengerId], references: [id])
+  passengerId  String
+  flight       Flight     @relation(fields: [flightId], references: [id])
+  flightId     String
+  seat         String?
+  segmentOrder Int        @default(1) // bağlantıda kaçıncı segment
+  isConnection Boolean    @default(false)
+  actMin       Int? // Actual Connection Time (dk) — bir sonraki segmente
+
+  @@index([pnr])
+  @@index([flightId])
+}
+
+model Disruption {
+  id          String         @id @default(cuid())
+  flight      Flight         @relation(fields: [flightId], references: [id])
+  flightId    String
+  type        DisruptionType
+  reason      String
+  startedAt   DateTime       @default(now())
+  resolved    Boolean        @default(false)
+
+  proposals   RebookingProposal[]
+  careActions CareAction[]
+
+  @@index([resolved])
+}
+
+model RebookingProposal {
+  id           String         @id @default(cuid())
+  disruption   Disruption     @relation(fields: [disruptionId], references: [id])
+  disruptionId String
+  passenger    Passenger      @relation(fields: [passengerId], references: [id])
+  passengerId  String
+  fromFlight   Flight         @relation("FromFlight", fields: [fromFlightId], references: [id])
+  fromFlightId String
+  toFlight     Flight         @relation("ToFlight", fields: [toFlightId], references: [id])
+  toFlightId   String
+  score        Float // 0-100 öncelik/uygunluk skoru
+  rank         Int // 1 = en iyi öneri
+  addedDelayMin Int          @default(0)
+  rationale    String // gerekçe (şeffaflık)
+  status       ProposalStatus @default(SUGGESTED)
+  createdAt    DateTime       @default(now())
+
+  @@index([disruptionId])
+  @@index([passengerId])
+}
+
+model CareAction {
+  id           String     @id @default(cuid())
+  disruption   Disruption @relation(fields: [disruptionId], references: [id])
+  disruptionId String
+  passenger    Passenger  @relation(fields: [passengerId], references: [id])
+  passengerId  String
+  type         CareType
+  amount       Float      @default(0) // tahmini maliyet
+  note         String?
+  status       CareStatus @default(SUGGESTED)
+  createdAt    DateTime   @default(now())
+}
+
+// Maliyet/ağırlık parametreleri (kural bazlı skor ayarı)
+model CostParam {
+  id    String @id @default(cuid())
+  key   String @unique // hotel_unit, meal_unit, transfer_unit, delay_penalty...
+  value Float
+  note  String?
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor     String // kullanıcı/rol
+  action    String // "proposal.apply", "care.approve"...
+  entity    String // "RebookingProposal:cuid"
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity])
+}
+
+model User {
+  id       String   @id @default(cuid())
+  username String   @unique
+  name     String
+  sicil    String   @unique
+  role     UserRole @default(IOCC)
+  passwordHash String
+  createdAt DateTime @default(now())
+}

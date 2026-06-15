@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: orbis-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: orbis
+      POSTGRES_PASSWORD: orbis
+      POSTGRES_DB: orbis
+    ports:
+      - "5432:5432"
+    volumes:
+      - orbis_pgdata:/var/lib/postgresql/data
+
+volumes:
+  orbis_pgdata:
