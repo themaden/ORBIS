@@ -36,3 +36,45 @@ html, body, #root {
 @keyframes dash {
   to { stroke-dashoffset: -200; }
 }
+
+/* ===== Açık tema (html.light) ===== */
+html.light,
+html.light body,
+html.light #root {
+  background: #eef1f5;
+  color: #16171d;
+}
+
+html.light .bg-command {
+  background:
+    radial-gradient(1000px 800px at 95% 70%, rgba(227, 10, 23, 0.10), transparent 55%),
+    radial-gradient(700px 500px at 0% 100%, rgba(90, 110, 150, 0.12), transparent 60%),
+    linear-gradient(135deg, #f3f5f9 0%, #e7ebf1 100%);
+}
+
+html.light .glass {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Beyaz metinleri koyuya çevir (opaklık varyantları dahil) */
+html.light [class*="text-white"] {
+  color: #1f2024 !important;
+}
+html.light [class*="placeholder-white"]::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+}
+/* Koyu temada beyaz saydam yüzeyler -> açık temada koyu saydam */
+html.light [class*="bg-white/"] {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+html.light [class*="border-white/"] {
+  border-color: rgba(0, 0, 0, 0.08);
+}
+html.light [class*="bg-black/"] {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+/* Marka kırmızısı butonlarda metin beyaz kalsın */
+html.light .bg-thy {
+  color: #fff !important;
+}

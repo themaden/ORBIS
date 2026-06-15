@@ -1,6 +1,7 @@
 import { Card } from "../components/Card";
 import { useEffect, useState } from "react";
 import { Bell, Globe, Moon, Shield, KeyRound, type LucideIcon } from "lucide-react";
+import { applyTheme } from "../theme";
 
 const STORAGE_KEY = "orbis.settings";
 
@@ -55,7 +56,10 @@ export default function SettingsPage() {
     }
   }, [opts]);
 
-  const set = (k: OptKey) => (v: boolean) => setOpts((o) => ({ ...o, [k]: v }));
+  const set = (k: OptKey) => (v: boolean) => {
+    setOpts((o) => ({ ...o, [k]: v }));
+    if (k === "dark") applyTheme(v);
+  };
 
   const prefs: { k: OptKey; icon: LucideIcon; label: string; desc: string }[] = [
     { k: "notify", icon: Bell, label: "Bildirimler", desc: "Tüm push bildirimleri" },
