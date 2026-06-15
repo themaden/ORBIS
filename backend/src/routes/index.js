@@ -1,19 +1,12 @@
 import { Router } from "express";
-import { flights, fleet, resources } from "../data/mock.js";
-import { getCrisisForecast } from "../services/aiClient.js";
+import { authRouter } from "./auth.js";
+import { flightsRouter } from "./flights.js";
+import { disruptionsRouter } from "./disruptions.js";
+import { kpiRouter } from "./kpi.js";
 
 export const router = Router();
 
-router.get("/flights", (_req, res) => res.json(flights));
-router.get("/fleet", (_req, res) => res.json(fleet));
-router.get("/resources", (_req, res) => res.json(resources));
-
-// Kriz tahmini — AI servisine vekillik eder (servis kapalıysa yerel tahmine düşer)
-router.get("/crisis", async (_req, res) => {
-  try {
-    const forecast = await getCrisisForecast({ flights });
-    res.json(forecast);
-  } catch (err) {
-    res.status(502).json({ error: "AI servisine ulaşılamadı", detail: String(err) });
-  }
-});
+router.use("/auth", authRouter);
+router.use("/flights", flightsRouter);
+router.use("/disruptions", disruptionsRouter);
+router.use("/kpi", kpiRouter);
