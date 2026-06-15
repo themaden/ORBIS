@@ -40,7 +40,8 @@ ORBIS/
 - **backend** uçuş/filo/kaynak verisini sağlar ve kriz tahmini için `ai` servisini çağırır.
 - **ai** "Aksaklık Risk Endeksi"ni ve önerileri üreten yapay zeka modelini barındırır.
 
-> Şu an **frontend** tamamlanmış, **backend** ve **ai** iskelet/placeholder aşamasındadır.
+> **frontend**, **backend** ve **ai** çalışır durumda; uçtan uca IRROPS akışı
+> (aksaklık → etkilenen yolcular → AI önerisi → uygula) PostgreSQL üzerinde aktiftir.
 
 ---
 
@@ -68,19 +69,19 @@ Her klasörün kendi `README.md` dosyasında ayrıntılı kurulum vardır.
 | Servis | Teknoloji | Durum | Klasör |
 |--------|-----------|-------|--------|
 | Arayüz | React 19, Vite 8, Tailwind 3, d3-geo | ✅ Hazır | [`frontend/`](frontend) |
-| API | Node.js, Express | 🚧 İskelet | [`backend/`](backend) |
-| Yapay Zeka | Python, FastAPI | 🚧 İskelet | [`ai/`](ai) |
+| API | Node.js, Express, Prisma, PostgreSQL | ✅ Hazır | [`backend/`](backend) |
+| Yapay Zeka | Python, FastAPI | ✅ Hazır | [`ai/`](ai) |
 
 ---
 
 ## 🗺️ Yol Haritası
 
-- [x] Frontend gösterge paneli (5 sayfa, 3B küre, kriz paneli)
-- [ ] Backend REST API'nin tamamlanması (auth, veri uç noktaları)
-- [ ] AI kriz tahmin modelinin eğitilmesi ve servise bağlanması
-- [ ] Frontend ↔ Backend ↔ AI canlı entegrasyonu
-- [ ] WebSocket ile gerçek zamanlı veri akışı
-- [ ] CI/CD + bulut dağıtımı (Vercel + Railway/Fly)
+- [x] Frontend gösterge paneli (3B küre, kriz paneli, IRROPS sayfası)
+- [x] Backend REST API (JWT auth, uçuş/aksaklık/KPI uç noktaları, Prisma+Postgres)
+- [x] IRROPS öneri motoru (öncelik skoru + kapasite-duyarlı atama + care)
+- [x] AI risk servisi (FastAPI) ve backend entegrasyonu
+- [x] Frontend ↔ Backend ↔ AI uçtan uca (aksaklık → öneri → uygula)
+- [ ] OR-Tools ile optimal atama · WebSocket canlı akış · bulut dağıtımı
 
 ## 📄 Lisans
 

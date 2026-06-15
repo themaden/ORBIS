@@ -1,9 +1,28 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { getKpi } from "../api/irrops";
 import { useApi } from "../hooks/useApi";
 import { Skeleton, ErrorState } from "./Skeleton";
 import { polar, arcPath as arc, valueToRatio } from "../lib/gauge";
 import type { Crisis, DelayLevel } from "../types";
+
+type CrisisView = Crisis & { source?: string };
+
+// Önce backend KPI'sını dener; başarısızsa mock kriz verisine düşer
+async function loadCrisis(): Promise<CrisisView> {
+  const base = await api.getCrisis();
+  try {
+    const k = await getKpi();
+    return {
+      ...base,
+      riskIndex: k.riskIndex,
+      suggestions: k.riskSuggestions?.length ? k.riskSuggestions : base.suggestions,
+      source: "backend",
+    };
+  } catch {
+    return { ...base, source: "mock" };
+  }
+}
 
 const levelColor = (lvl: DelayLevel) =>
   lvl === "Yüksek" ? "text-thy" : lvl === "Orta" ? "text-orange-400" : "text-emerald-400";
@@ -53,18 +72,24 @@ function Gauge({ value = 75 }: { value?: number }) {
 }
 
 export default function RightPanel() {
-  const { data, loading, error, reload } = useApi<Crisis>(() => api.getCrisis());
+  const { data, loading, error, reload } = useApi<CrisisView>(loadCrisis);
   const [live, setLive] = useState<Crisis | null>(null);
 
-  // İlk veri geldikten sonra canlı akışa abone ol
+  // Backend bağlı değilse mock canlı akışa abone ol (animasyon hissi)
   useEffect(() => {
-    if (!data) return;
+    if (!data || data.source === "backend") return;
     const unsub = api.subscribeCrisis(setLive);
     return unsub;
   }, [data]);
 
   const view = live || data;
   const updatedAt = live?.updatedAt;
+  const liveLabel =
+    data?.source === "backend"
+      ? "Canlı · backend (AI)"
+      : updatedAt
+      ? `Canlı · ${new Date(updatedAt).toLocaleTimeString("tr-TR")}`
+      : "Canlı veri akışı";
 
   return (
     <aside className="w-full xl:w-[360px] h-auto xl:h-full p-5 flex flex-col gap-4 z-10 overflow-y-auto shrink-0">
@@ -88,9 +113,7 @@ export default function RightPanel() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
                 </span>
-                {updatedAt
-                  ? `Canlı · ${new Date(updatedAt).toLocaleTimeString("tr-TR")}`
-                  : "Canlı veri akışı"}
+                {liveLabel}
               </div>
             </>
           )}
