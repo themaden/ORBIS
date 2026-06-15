@@ -15,8 +15,11 @@ from .model import predict_delay, score_risk
 from .schemas import (
     AssignRequest,
     AssignResponse,
+    DelayBatchRequest,
+    DelayBatchResponse,
     DelayRequest,
     DelayResponse,
+    ModelInfo,
     RiskRequest,
     RiskResponse,
 )
@@ -41,10 +44,26 @@ def health() -> dict:
     try:
         from .ml import MODEL
 
-        info["delayModel"] = f"random-forest (R²={MODEL.train_r2})"
+        info["delayModel"] = f"random-forest (MAE={MODEL.mae} dk, AUC={MODEL.auc})"
     except Exception:
         info["delayModel"] = "heuristic"
     return info
+
+
+@app.get("/model/info", response_model=ModelInfo)
+def model_info() -> ModelInfo:
+    from .ml import MODEL
+
+    return ModelInfo(
+        delayModel="RandomForest (regresyon + sınıflandırma)",
+        note="Sentetik veri, holdout test ile değerlendirildi (gerçek veriyle değiştirilebilir).",
+        maeMin=MODEL.mae,
+        rmseMin=MODEL.rmse,
+        auc=MODEL.auc,
+        featureImportances=MODEL.importances,
+        nTrain=MODEL.n_train,
+        nTest=MODEL.n_test,
+    )
 
 
 @app.post("/risk/score", response_model=RiskResponse)
@@ -55,6 +74,11 @@ def risk(req: RiskRequest) -> RiskResponse:
 @app.post("/predict/delay", response_model=DelayResponse)
 def delay(req: DelayRequest) -> DelayResponse:
     return predict_delay(req)
+
+
+@app.post("/predict/delay/batch", response_model=DelayBatchResponse)
+def delay_batch(req: DelayBatchRequest) -> DelayBatchResponse:
+    return DelayBatchResponse(predictions=[predict_delay(it) for it in req.items])
 
 
 @app.post("/assign", response_model=AssignResponse)

@@ -19,6 +19,22 @@ export async function getOptimalAssignment(payload) {
   }
 }
 
+// Alternatif uçuşlar için toplu ML gecikme tahmini. Kapalıysa null.
+export async function predictDelays(items) {
+  try {
+    const r = await fetch(`${AI_URL}/predict/delay/batch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!r.ok) throw new Error(`AI ${r.status}`);
+    return (await r.json()).predictions;
+  } catch {
+    return null;
+  }
+}
+
 // IRROPS risk skoru — AI servisinden, kapalıysa yerel heuristik
 export async function getRiskScore(snapshot) {
   try {

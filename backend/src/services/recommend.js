@@ -2,7 +2,7 @@
 // Kural bazlı öncelik skoru + AI optimal atama (min-cost flow), AI kapalıysa
 // kapasite-duyarlı açgözlü atamaya düşer. Her öneride şeffaf gerekçe döner.
 import { prisma } from "../db.js";
-import { getOptimalAssignment } from "./aiClient.js";
+import { getOptimalAssignment, predictDelays } from "./aiClient.js";
 
 const LOYALTY_W = { ELITE_PLUS: 1, ELITE: 0.7, CLASSIC: 0.4, NONE: 0.1 };
 const CLASS_W = { BUSINESS: 1, ECONOMY: 0.4 };
@@ -77,7 +77,26 @@ export async function recommendForDisruption(disruptionId) {
       BUSINESS: Math.max(0, a.businessCap - a.businessBooked),
       addedDelayMin: Math.round((a.scheduledDep - orig.scheduledDep) / 60000),
       flightNo: a.flightNo,
+      predictedDelayMin: 0, // ML ile doldurulacak
     };
+  }
+
+  // ML: her alternatif uçuşun kendi gecikme riskini tahmin et (kararı etkiler)
+  const isWeather = disruption.type === "WEATHER";
+  const mlItems = alts.map((a) => ({
+    departureHour: new Date(a.scheduledDep).getHours(),
+    loadFactor: Math.min(
+      1,
+      (a.economyBooked + a.businessBooked) / Math.max(1, a.economyCap + a.businessCap)
+    ),
+    routeHaulHours: Math.max(1, (a.scheduledArr - a.scheduledDep) / 3600000),
+    weatherSeverity: isWeather ? 0.6 : 0.3,
+  }));
+  const preds = await predictDelays(mlItems);
+  if (preds) {
+    alts.forEach((a, i) => {
+      avail[a.id].predictedDelayMin = preds[i]?.expectedDelayMin ?? 0;
+    });
   }
 
   // Öncelik skoru
@@ -112,7 +131,9 @@ export async function recommendForDisruption(disruptionId) {
       flightId: a.id,
       economyAvail: avail[a.id].ECONOMY,
       businessAvail: avail[a.id].BUSINESS,
-      addedDelayMin: avail[a.id].addedDelayMin,
+      // risk-ayarlı: tarife gecikmesi + ML'in öngördüğü ikincil gecikme yarısı
+      addedDelayMin:
+        avail[a.id].addedDelayMin + Math.round((avail[a.id].predictedDelayMin || 0) * 0.5),
     })),
   });
   const optimalMap = optimal
@@ -159,13 +180,15 @@ export async function recommendForDisruption(disruptionId) {
           ? " · bağlantı korunabilir"
           : " · bağlantı riskli"
         : "";
+      const riskNote =
+        v.predictedDelayMin >= 45 ? ` · ⚠ tahmini gecikme riski ~${v.predictedDelayMin} dk` : "";
       return {
         toFlightId: a.id,
         toFlightNo: v.flightNo,
         rank: idx + 1,
         addedDelayMin: v.addedDelayMin,
         fitScore: Math.round(fit),
-        rationale: `${v.flightNo} ile +${v.addedDelayMin} dk · ${TR_LOYALTY[pax.loyalty]}, ${TR_CLASS[pax.ticketClass]}${connNote}`,
+        rationale: `${v.flightNo} ile +${v.addedDelayMin} dk · ${TR_LOYALTY[pax.loyalty]}, ${TR_CLASS[pax.ticketClass]}${connNote}${riskNote}`,
       };
     });
 

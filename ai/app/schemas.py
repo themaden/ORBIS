@@ -39,6 +39,25 @@ class DelayResponse(BaseModel):
     band: str  # Düşük / Orta / Yüksek
 
 
+class DelayBatchRequest(BaseModel):
+    items: list[DelayRequest]
+
+
+class DelayBatchResponse(BaseModel):
+    predictions: list[DelayResponse]
+
+
+class ModelInfo(BaseModel):
+    delayModel: str
+    note: str
+    maeMin: float  # holdout ortalama mutlak hata (dk)
+    rmseMin: float
+    auc: float  # önemli gecikme sınıflandırma AUC
+    featureImportances: dict[str, float]
+    nTrain: int
+    nTest: int
+
+
 # ---- Optimal atama (min-cost flow) ----
 class AssignPassenger(BaseModel):
     passengerId: str
