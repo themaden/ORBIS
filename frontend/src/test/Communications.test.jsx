@@ -8,7 +8,8 @@ describe("İletişim Merkezi", () => {
     const user = userEvent.setup();
     render(<Communications />);
 
-    const input = screen.getByPlaceholderText(/kanalına mesaj gönder/i);
+    // Veri async yüklenir; input görünene kadar bekle
+    const input = await screen.findByPlaceholderText(/kanalına mesaj gönder/i);
     await user.type(input, "Test mesaji 123");
     await user.click(screen.getByLabelText("Mesaj gönder"));
 

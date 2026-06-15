@@ -15,89 +15,25 @@ import {
   Headphones,
   Settings as Cog,
 } from "lucide-react";
+import { api } from "../api/client";
+import { useApi } from "../hooks/useApi";
+import { Skeleton, ErrorState } from "../components/Skeleton";
+import type { ChatRole, ChatMessage, Member } from "../types";
 
-type Role = "Komuta" | "Pilot" | "Kabin" | "Yer";
-type Presence = "online" | "idle" | "offline";
-
-interface Channel {
-  id: string;
-  name: string;
-  type: "text" | "voice";
-  unread?: boolean;
-  badge?: number;
-  count?: number;
-}
-interface Category {
-  name: string;
-  channels: Channel[];
-}
-interface Message {
-  user: string;
-  role: Role;
-  time: string;
-  text: string;
-}
-interface Member {
-  name: string;
-  role: Role;
-  status: Presence;
-}
-
-const categories: Category[] = [
-  {
-    name: "OPERASYON",
-    channels: [
-      { id: "genel", name: "genel", type: "text" },
-      { id: "anlik-durum", name: "anlık-durum", type: "text", unread: true },
-      { id: "kriz-masasi", name: "kriz-masası", type: "text", badge: 3 },
-      { id: "duyurular", name: "duyurular", type: "text" },
-    ],
-  },
-  {
-    name: "EKİPLER",
-    channels: [
-      { id: "pilotlar", name: "pilotlar", type: "text" },
-      { id: "kabin", name: "kabin-ekibi", type: "text" },
-      { id: "yer-hizmet", name: "yer-hizmetleri", type: "text" },
-    ],
-  },
-  {
-    name: "SESLİ KANALLAR",
-    channels: [
-      { id: "kule", name: "Kule Hattı", type: "voice", count: 4 },
-      { id: "brifing", name: "Brifing Odası", type: "voice", count: 0 },
-    ],
-  },
-];
-
-const roleColor: Record<Role, string> = {
+const roleColor: Record<ChatRole, string> = {
   Komuta: "#E30A17",
   Pilot: "#f0b429",
   Kabin: "#38bdf8",
   Yer: "#34d399",
 };
 
-const messagesByChannel: Record<string, Message[]> = {
-  "anlik-durum": [
-    { user: "Op. Merkezi", role: "Komuta", time: "14:02", text: "TK1985 için Frankfurt aktarması revize ediliyor. Tüm birimler hazır olsun." },
-    { user: "Mehmet Demir", role: "Pilot", time: "14:04", text: "Anlaşıldı, yeni kapı bilgisini bekliyoruz." },
-    { user: "Op. Merkezi", role: "Komuta", time: "14:06", text: "Kapı A22 olarak güncellendi. Yolcular bilgilendirildi ✅" },
-    { user: "Zeynep Kaya", role: "Kabin", time: "14:07", text: "Kabin ekibi brifinge hazır. Catering yüklemesi tamam." },
-    { user: "Ali Yıldız", role: "Yer", time: "14:08", text: "A22 kapısı boşaltıldı, körük bağlandı." },
-    { user: "Op. Merkezi", role: "Komuta", time: "14:09", text: "Harika. Kalkış slotu 14:35 olarak onaylandı." },
-  ],
-  genel: [
-    { user: "Zeynep Kaya", role: "Kabin", time: "13:40", text: "Günaydın ekip! Bugün yoğun bir gün olacak gibi 🛫" },
-    { user: "Mehmet Demir", role: "Pilot", time: "13:42", text: "Günaydın, hava raporları ellerine ulaştı mı?" },
-    { user: "Op. Merkezi", role: "Komuta", time: "13:45", text: "Evet, Avrupa rotasında fırtına bekleniyor. Detaylar #kriz-masası kanalında." },
-  ],
-  "kriz-masasi": [
-    { user: "Op. Merkezi", role: "Komuta", time: "12:10", text: "⚠️ Londra üzerinde gelen fırtına nedeniyle 50 otel odası ön rezervasyonu yapıldı." },
-    { user: "Ali Yıldız", role: "Yer", time: "12:14", text: "Transfer araçları da ayarlandı, 6 adet hazır." },
-  ],
+const statusColor: Record<string, string> = {
+  online: "#34d399",
+  idle: "#f0b429",
+  offline: "#6b7280",
 };
 
-function Avatar({ name, role }: { name: string; role: Role }) {
+function Avatar({ name, role }: { name: string; role: ChatRole }) {
   const init = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   return (
     <div
@@ -109,50 +45,69 @@ function Avatar({ name, role }: { name: string; role: Role }) {
   );
 }
 
-const members: Member[] = [
-  { name: "Op. Merkezi", role: "Komuta", status: "online" },
-  { name: "Mehmet Demir", role: "Pilot", status: "online" },
-  { name: "Selin Arslan", role: "Pilot", status: "online" },
-  { name: "Zeynep Kaya", role: "Kabin", status: "online" },
-  { name: "Ali Yıldız", role: "Yer", status: "idle" },
-  { name: "Burak Şahin", role: "Yer", status: "offline" },
-  { name: "Elif Çetin", role: "Kabin", status: "offline" },
-];
-
-const statusColor: Record<Presence, string> = {
-  online: "#34d399",
-  idle: "#f0b429",
-  offline: "#6b7280",
-};
+function MemberRow({ m, dim }: { m: Member; dim?: boolean }) {
+  return (
+    <div
+      className={`flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-white/5 ${
+        dim ? "opacity-45" : ""
+      }`}
+    >
+      <div className="relative">
+        <Avatar name={m.name} role={m.role} />
+        <span
+          className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0e0e12]"
+          style={{ background: statusColor[m.status] }}
+        />
+      </div>
+      <div className="min-w-0">
+        <div className="text-sm font-medium truncate" style={{ color: roleColor[m.role] }}>
+          {m.name}
+        </div>
+        <div className="text-[10px] text-white/40">{m.role}</div>
+      </div>
+    </div>
+  );
+}
 
 export default function Communications() {
+  const { data: seed, loading, error, reload } = useApi(() => api.getCommsSeed());
   const [active, setActive] = useState("anlik-durum");
   const [text, setText] = useState("");
-  const [allMsgs, setAllMsgs] = useState<Record<string, Message[]>>(messagesByChannel);
+  // Kullanıcının gönderdiği mesajlar (seed üzerine eklenir)
+  const [extra, setExtra] = useState<Record<string, ChatMessage[]>>({});
 
+  if (loading) {
+    return (
+      <div className="flex-1 p-6">
+        <Skeleton className="h-full w-full min-h-[400px]" />
+      </div>
+    );
+  }
+  if (error || !seed) {
+    return (
+      <div className="flex-1 p-6">
+        <ErrorState message="İletişim verisi yüklenemedi" onRetry={reload} />
+      </div>
+    );
+  }
+
+  const { categories, members } = seed;
   const activeName =
-    categories.flatMap((c) => c.channels).find((c) => c.id === active)?.name ||
-    "genel";
-  const msgs = allMsgs[active] || [];
+    categories.flatMap((c) => c.channels).find((c) => c.id === active)?.name || "genel";
+  const msgs = [...(seed.messagesByChannel[active] || []), ...(extra[active] || [])];
+  const online = members.filter((m) => m.status !== "offline");
+  const offline = members.filter((m) => m.status === "offline");
 
   const send = () => {
     const t = text.trim();
     if (!t) return;
-    const now = new Date().toLocaleTimeString("tr-TR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    setAllMsgs((m) => ({
-      ...m,
-      [active]: [
-        ...(m[active] || []),
-        { user: "Ahmet Yılmaz", role: "Komuta", time: now, text: t },
-      ],
+    const now = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+    setExtra((e) => ({
+      ...e,
+      [active]: [...(e[active] || []), { user: "Ahmet Yılmaz", role: "Komuta", time: now, text: t }],
     }));
     setText("");
   };
-  const online = members.filter((m) => m.status !== "offline");
-  const offline = members.filter((m) => m.status === "offline");
 
   return (
     <div className="flex-1 px-6 pb-6 overflow-hidden">
@@ -178,9 +133,7 @@ export default function Communications() {
                       key={ch.id}
                       onClick={() => ch.type === "text" && setActive(ch.id)}
                       className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition ${
-                        sel
-                          ? "bg-white/10 text-white"
-                          : "text-white/55 hover:bg-white/5 hover:text-white/80"
+                        sel ? "bg-white/10 text-white" : "text-white/55 hover:bg-white/5 hover:text-white/80"
                       }`}
                     >
                       <Icon size={16} className="shrink-0 opacity-70" />
@@ -193,9 +146,7 @@ export default function Communications() {
                         </span>
                       )}
                       {ch.type === "voice" && (ch.count ?? 0) > 0 && (
-                        <span className="ml-auto text-[10px] text-white/40">
-                          {ch.count}
-                        </span>
+                        <span className="ml-auto text-[10px] text-white/40">{ch.count}</span>
                       )}
                     </button>
                   );
@@ -203,7 +154,6 @@ export default function Communications() {
               </div>
             ))}
           </div>
-          {/* user bar */}
           <div className="h-14 bg-black/40 px-3 flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-thy flex items-center justify-center text-[11px] font-bold">
               AY
@@ -232,16 +182,11 @@ export default function Communications() {
               <UsersIcon size={16} className="hover:text-white cursor-pointer" />
               <div className="flex items-center gap-1.5 bg-black/30 rounded px-2 py-1">
                 <Search size={13} />
-                <input
-                  placeholder="Ara"
-                  aria-label="Kanal içi ara"
-                  className="bg-transparent outline-none text-xs w-20"
-                />
+                <input placeholder="Ara" className="bg-transparent outline-none text-xs w-20" />
               </div>
             </div>
           </div>
 
-          {/* messages */}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
             <div className="text-center">
               <div className="inline-flex w-14 h-14 rounded-full bg-thy/20 items-center justify-center mb-2">
@@ -268,7 +213,6 @@ export default function Communications() {
             ))}
           </div>
 
-          {/* input */}
           <div className="px-4 pb-4">
             <div className="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
               <PlusCircle size={20} className="text-white/45" />
@@ -308,30 +252,6 @@ export default function Communications() {
             <MemberRow key={m.name} m={m} dim />
           ))}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function MemberRow({ m, dim }: { m: Member; dim?: boolean }) {
-  return (
-    <div
-      className={`flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-white/5 ${
-        dim ? "opacity-45" : ""
-      }`}
-    >
-      <div className="relative">
-        <Avatar name={m.name} role={m.role} />
-        <span
-          className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0e0e12]"
-          style={{ background: statusColor[m.status] }}
-        />
-      </div>
-      <div className="min-w-0">
-        <div className="text-sm font-medium truncate" style={{ color: roleColor[m.role] }}>
-          {m.name}
-        </div>
-        <div className="text-[10px] text-white/40">{m.role}</div>
       </div>
     </div>
   );

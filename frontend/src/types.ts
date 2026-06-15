@@ -56,3 +56,39 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
 }
+
+export type ChatRole = "Komuta" | "Pilot" | "Kabin" | "Yer";
+export type MemberStatus = "online" | "idle" | "offline";
+
+export interface Channel {
+  id: string;
+  name: string;
+  type: "text" | "voice";
+  unread?: boolean;
+  badge?: number;
+  count?: number;
+}
+
+export interface ChannelCategory {
+  name: string;
+  channels: Channel[];
+}
+
+export interface ChatMessage {
+  user: string;
+  role: ChatRole;
+  time: string;
+  text: string;
+}
+
+export interface Member {
+  name: string;
+  role: ChatRole;
+  status: MemberStatus;
+}
+
+export interface CommsSeed {
+  categories: ChannelCategory[];
+  members: Member[];
+  messagesByChannel: Record<string, ChatMessage[]>;
+}
