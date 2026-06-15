@@ -1,27 +1,23 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   geoOrthographic,
   geoPath,
   geoGraticule10,
   geoDistance,
-  type GeoPermissibleObjects,
 } from "d3-geo";
 import { feature } from "topojson-client";
-import type { Feature, FeatureCollection } from "geojson";
+import type { Feature } from "geojson";
 
-const SIZE = 560;
+const SIZE = 600;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
-const R = SIZE / 2 - 18;
+const R = SIZE / 2 - 20;
 
 type Coord = [number, number];
-type Capital = [number, number, string];
-type Plane = [number, number, number];
-
 const IST: Coord = [28.97, 41.01];
 
-// All country capitals: [lon, lat, name]
-const capitals = [
+// [lon, lat, ad]
+const capitals: [number, number, string][] = [
   [32.85, 39.93, "Ankara"], [13.40, 52.52, "Berlin"], [2.35, 48.85, "Paris"],
   [-0.13, 51.51, "Londra"], [-3.70, 40.42, "Madrid"], [12.50, 41.90, "Roma"],
   [-9.14, 38.72, "Lizbon"], [-6.26, 53.35, "Dublin"], [4.90, 52.37, "Amsterdam"],
@@ -78,40 +74,45 @@ const capitals = [
   [-58.16, 6.80, "Georgetown"], [-55.20, 5.87, "Paramaribo"], [149.13, -35.28, "Canberra"],
   [174.78, -41.29, "Wellington"], [147.18, -9.44, "Port Moresby"], [178.44, -18.12, "Suva"],
   [-171.76, -13.83, "Apia"], [10.45, 51.17, "Frankfurt"], [-21.83, 64.13, "Keflavik"],
-] as unknown as Capital[];
+];
 
-// Pseudo-random flightradar-style planes derived from capitals (stable)
-function makePlanes(): Plane[] {
+const majorRoutes: Coord[] = [
+  [-74, 40.7], [-0.13, 51.5], [139.69, 35.69], [55.3, 25.2],
+  [103.82, 1.35], [116.4, 39.9], [-43.2, -22.9], [37.62, 55.75],
+  [31.24, 30.04], [77.21, 28.61], [-99.13, 19.43], [151.2, -33.9],
+];
+
+// Pseudo-random flightradar-style planes (stable)
+function makePlanes(): [number, number, number][] {
   let seed = 1337;
   const rnd = () => {
     seed = (seed * 1103515245 + 12345) & 0x7fffffff;
     return seed / 0x7fffffff;
   };
-  const planes: Plane[] = [];
+  const out: [number, number, number][] = [];
   for (let i = 0; i < 55; i++) {
     const base = capitals[Math.floor(rnd() * capitals.length)];
-    planes.push([
-      base[0] + (rnd() - 0.5) * 18,
-      base[1] + (rnd() - 0.5) * 14,
-      Math.floor(rnd() * 360), // heading
-    ]);
+    out.push([base[0] + (rnd() - 0.5) * 18, base[1] + (rnd() - 0.5) * 14, Math.floor(rnd() * 360)]);
   }
-  return planes;
+  return out;
 }
 
-const PLANE =
-  "M0,-9 L1.4,-3 L8,1 L8,2.6 L1.4,1.6 L1,7 L3,8.6 L3,9.6 L0,8.6 L-3,9.6 L-3,8.6 L-1,7 L-1.4,1.6 L-8,2.6 L-8,1 L-1.4,-3 Z";
+const PLANE_PATH = new Path2D(
+  "M0,-9 L1.4,-3 L8,1 L8,2.6 L1.4,1.6 L1,7 L3,8.6 L3,9.6 L0,8.6 L-3,9.6 L-3,8.6 L-1,7 L-1.4,1.6 L-8,2.6 L-8,1 L-1.4,-3 Z"
+);
 
-type Status = "loading" | "ready" | "error";
+const planes = makePlanes();
 
 export default function WorldMap() {
-  const [land, setLand] = useState<Feature[]>([]);
-  const [status, setStatus] = useState<Status>("loading");
-  const [lambda, setLambda] = useState(20);
-  const dragging = useRef(false);
-  const last = useRef(0);
-  const planes = useMemo(() => makePlanes(), []);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const landRef = useRef<Feature[]>([]);
+  const lambdaRef = useRef(20);
+  const draggingRef = useRef(false);
+  const lastXRef = useRef(0);
+  const drawRef = useRef<() => void>(() => {});
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
+  // Harita verisi
   useEffect(() => {
     let cancelled = false;
     fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
@@ -119,14 +120,15 @@ export default function WorldMap() {
         if (!r.ok) throw new Error("network");
         return r.json();
       })
-      .then((topo) => {
+       
+      .then((topo: any) => {
         if (cancelled) return;
-        const fc = feature(
-          topo,
-          topo.objects.countries
-        ) as unknown as FeatureCollection;
-        setLand(fc.features);
+        const fc = feature(topo, topo.objects.countries) as unknown as {
+          features: Feature[];
+        };
+        landRef.current = fc.features;
         setStatus("ready");
+        drawRef.current(); // rAF kısıtlıysa bile kıtaları hemen çiz
       })
       .catch(() => !cancelled && setStatus("error"));
     return () => {
@@ -134,61 +136,185 @@ export default function WorldMap() {
     };
   }, []);
 
+  // Canvas çizim döngüsü (imperatif — React reconciliation yok)
   useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2) * 1.4;
+    canvas.width = SIZE * dpr;
+    canvas.height = SIZE * dpr;
+    ctx.scale(dpr, dpr);
+
     let raf = 0;
     let prev = performance.now();
-    const tick = (now: number) => {
+
+    const draw = () => {
+      const lambda = lambdaRef.current;
+      const projection = geoOrthographic()
+        .scale(R)
+        .translate([CX, CY])
+        .rotate([-lambda, -18, 0])
+        .clipAngle(90);
+       
+      const path = geoPath(projection, ctx as any);
+      const center: Coord = [lambda, 18];
+      const visible = (c: Coord) => geoDistance(c, center) < Math.PI / 2 - 0.02;
+
+      ctx.clearRect(0, 0, SIZE, SIZE);
+
+      // atmosfer parıltısı
+      const glow = ctx.createRadialGradient(CX, CY, R - 4, CX, CY, R + 14);
+      glow.addColorStop(0, "rgba(227,10,23,0)");
+      glow.addColorStop(1, "rgba(227,10,23,0.32)");
+      ctx.beginPath();
+      ctx.arc(CX, CY, R + 14, 0, 2 * Math.PI);
+      ctx.fillStyle = glow;
+      ctx.fill();
+
+      // okyanus küresi
+      const ocean = ctx.createRadialGradient(CX * 0.84, CY * 0.76, 0, CX, CY, R);
+      ocean.addColorStop(0, "#1c2230");
+      ocean.addColorStop(0.7, "#11151e");
+      ocean.addColorStop(1, "#080a10");
+      ctx.beginPath();
+      ctx.arc(CX, CY, R, 0, 2 * Math.PI);
+      ctx.fillStyle = ocean;
+      ctx.fill();
+
+      // enlem/boylam çizgileri
+      ctx.beginPath();
+       
+      path(geoGraticule10() as any);
+      ctx.strokeStyle = "rgba(255,255,255,0.06)";
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+
+      // kıtalar
+      const land = landRef.current;
+      for (let i = 0; i < land.length; i++) {
+        ctx.beginPath();
+         
+        path(land[i] as any);
+        ctx.fillStyle = "#3a4150";
+        ctx.fill();
+        ctx.strokeStyle = "#4a5260";
+        ctx.lineWidth = 0.4;
+        ctx.stroke();
+      }
+
+      // ana rotalar
+      ctx.strokeStyle = "rgba(227,10,23,0.55)";
+      ctx.lineWidth = 1;
+      for (const d of majorRoutes) {
+        if (!visible(d) && !visible(IST)) continue;
+        ctx.beginPath();
+         
+        path({ type: "LineString", coordinates: [IST, d] } as any);
+        ctx.stroke();
+      }
+
+      // başkent pinleri
+      for (const c of capitals) {
+        const coord: Coord = [c[0], c[1]];
+        if (!visible(coord)) continue;
+        const p = projection(coord);
+        if (!p) continue;
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], 4.5, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(56,189,248,0.18)";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], 1.7, 0, 2 * Math.PI);
+        ctx.fillStyle = "#7dd3fc";
+        ctx.fill();
+      }
+
+      // uçaklar
+      for (const pl of planes) {
+        const coord: Coord = [pl[0], pl[1]];
+        if (!visible(coord)) continue;
+        const p = projection(coord);
+        if (!p) continue;
+        ctx.save();
+        ctx.translate(p[0], p[1]);
+        ctx.rotate((pl[2] * Math.PI) / 180);
+        ctx.scale(0.8, 0.8);
+        ctx.fillStyle = "#f5c518";
+        ctx.fill(PLANE_PATH);
+        ctx.restore();
+      }
+
+      // İstanbul hub
+      if (visible(IST)) {
+        const p = projection(IST);
+        if (p) {
+          const hub = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], 30);
+          hub.addColorStop(0, "rgba(227,10,23,0.6)");
+          hub.addColorStop(1, "rgba(227,10,23,0)");
+          ctx.beginPath();
+          ctx.arc(p[0], p[1], 30, 0, 2 * Math.PI);
+          ctx.fillStyle = hub;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(p[0], p[1], 13, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(227,10,23,0.18)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(255,255,255,0.6)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.save();
+          ctx.translate(p[0], p[1]);
+          ctx.rotate((45 * Math.PI) / 180);
+          ctx.scale(0.95, 0.95);
+          ctx.fillStyle = "#fff";
+          ctx.fill(PLANE_PATH);
+          ctx.restore();
+          ctx.fillStyle = "#fff";
+          ctx.textAlign = "center";
+          ctx.font = "600 11px Inter, sans-serif";
+          ctx.fillText("İstanbul", p[0], p[1] - 22);
+          ctx.fillStyle = "rgba(255,255,255,0.75)";
+          ctx.font = "10px Inter, sans-serif";
+          ctx.fillText("(IST)", p[0], p[1] + 30);
+        }
+      }
+
+      // çerçeve
+      ctx.beginPath();
+      ctx.arc(CX, CY, R, 0, 2 * Math.PI);
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    };
+
+    const render = (now: number) => {
       const dt = now - prev;
       prev = now;
-      if (!dragging.current) setLambda((l) => (l + dt * 0.005) % 360);
-      raf = requestAnimationFrame(tick);
+      if (!draggingRef.current) lambdaRef.current = (lambdaRef.current + dt * 0.005) % 360;
+      draw();
+      raf = requestAnimationFrame(render);
     };
-    raf = requestAnimationFrame(tick);
+
+    drawRef.current = draw;
+    draw(); // mount'ta ilk kareyi hemen çiz (rAF kısıtlı olsa bile görünür)
+    raf = requestAnimationFrame(render);
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const rotate: [number, number, number] = [-lambda, -18, 0];
-  const center: Coord = [lambda, 18];
-
-  const projection = geoOrthographic()
-    .scale(R)
-    .translate([CX, CY])
-    .rotate(rotate)
-    .clipAngle(90);
-  const path = geoPath(projection).pointRadius(2.4);
-
-  const visible = (c: Coord) => geoDistance(c, center) < Math.PI / 2 - 0.02;
-  const draw = (obj: GeoPermissibleObjects) => path(obj) ?? undefined;
-
-  // a handful of red routes from IST to major hubs
-  const majorRoutes = (
-    [
-      [-74, 40.7], [-0.13, 51.5], [139.69, 35.69], [55.3, 25.2],
-      [103.82, 1.35], [116.4, 39.9], [-43.2, -22.9], [37.62, 55.75],
-      [31.24, 30.04], [77.21, 28.61], [-99.13, 19.43], [151.2, -33.9],
-    ] as Coord[]
-  )
-    .filter((d) => visible(d) || visible(IST))
-    .map(
-      (d) =>
-        ({ type: "LineString", coordinates: [IST, d] }) as GeoPermissibleObjects
-    );
-
-  const istPt = projection(IST);
-  const istVisible = visible(IST);
-
-  const onDown = (e: MouseEvent<SVGSVGElement>) => {
-    dragging.current = true;
-    last.current = e.clientX;
+  const onDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    draggingRef.current = true;
+    lastXRef.current = e.clientX;
   };
-  const onMove = (e: MouseEvent<SVGSVGElement>) => {
-    if (!dragging.current) return;
-    const dx = e.clientX - last.current;
-    last.current = e.clientX;
-    setLambda((l) => (l + dx * 0.4 + 360) % 360);
+  const onMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!draggingRef.current) return;
+    const dx = e.clientX - lastXRef.current;
+    lastXRef.current = e.clientX;
+    lambdaRef.current = (lambdaRef.current + dx * 0.4 + 360) % 360;
   };
   const onUp = () => {
-    dragging.current = false;
+    draggingRef.current = false;
   };
 
   return (
@@ -218,148 +344,15 @@ export default function WorldMap() {
           )}
         </div>
       )}
-      <svg
-        viewBox={`0 0 ${SIZE} ${SIZE}`}
+      <canvas
+        ref={canvasRef}
         className="h-full max-h-full select-none cursor-grab active:cursor-grabbing"
-        style={{ width: "auto", opacity: status === "ready" ? 1 : 0.25 }}
+        style={{ width: "auto", aspectRatio: "1 / 1", opacity: status === "ready" ? 1 : 0.25 }}
         onMouseDown={onDown}
         onMouseMove={onMove}
         onMouseUp={onUp}
         onMouseLeave={onUp}
-      >
-        <defs>
-          <radialGradient id="ocean" cx="42%" cy="38%" r="70%">
-            <stop offset="0%" stopColor="#1c2230" />
-            <stop offset="70%" stopColor="#11151e" />
-            <stop offset="100%" stopColor="#080a10" />
-          </radialGradient>
-          <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-            <stop offset="80%" stopColor="#E30A17" stopOpacity="0" />
-            <stop offset="100%" stopColor="#E30A17" stopOpacity="0.35" />
-          </radialGradient>
-          <radialGradient id="istGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#E30A17" stopOpacity="0.6" />
-            <stop offset="100%" stopColor="#E30A17" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-
-        <circle cx={CX} cy={CY} r={R + 12} fill="url(#glow)" />
-        <circle cx={CX} cy={CY} r={R} fill="url(#ocean)" />
-
-        <path
-          d={draw(geoGraticule10())}
-          fill="none"
-          stroke="rgba(255,255,255,0.06)"
-          strokeWidth="0.5"
-        />
-
-        {land.map((g, i) => (
-          <path
-            key={i}
-            d={draw(g)}
-            fill="#3a4150"
-            stroke="#4a5260"
-            strokeWidth="0.4"
-          />
-        ))}
-
-        {/* major flight routes */}
-        {majorRoutes.map((f, i) => (
-          <path
-            key={`r-${i}`}
-            d={draw(f)}
-            fill="none"
-            stroke="#E30A17"
-            strokeWidth="1"
-            strokeOpacity="0.55"
-            strokeLinecap="round"
-          />
-        ))}
-
-        {/* capital markers (pins) */}
-        {capitals.map((c, i) => {
-          const coord: Coord = [c[0], c[1]];
-          if (!visible(coord)) return null;
-          const p = projection(coord);
-          if (!p) return null;
-          return (
-            <g key={`c-${i}`}>
-              <title>{c[2]}</title>
-              <circle cx={p[0]} cy={p[1]} r="3.4" fill="#38bdf8" opacity="0.18" />
-              <circle
-                cx={p[0]}
-                cy={p[1]}
-                r="1.7"
-                fill="#7dd3fc"
-                stroke="#0b1220"
-                strokeWidth="0.4"
-              />
-            </g>
-          );
-        })}
-
-        {/* flightradar-style planes */}
-        {planes.map((pl, i) => {
-          const coord: Coord = [pl[0], pl[1]];
-          if (!visible(coord)) return null;
-          const p = projection(coord);
-          if (!p) return null;
-          return (
-            <g
-              key={`p-${i}`}
-              transform={`translate(${p[0]},${p[1]}) rotate(${pl[2]}) scale(0.8)`}
-            >
-              <path d={PLANE} fill="#f5c518" stroke="#3a2c00" strokeWidth="0.6" />
-            </g>
-          );
-        })}
-
-        {/* Istanbul hub */}
-        {istVisible && istPt && (
-          <g>
-            <circle cx={istPt[0]} cy={istPt[1]} r="30" fill="url(#istGlow)" />
-            <circle
-              cx={istPt[0]}
-              cy={istPt[1]}
-              r="13"
-              fill="rgba(227,10,23,0.18)"
-              stroke="rgba(255,255,255,0.6)"
-              strokeWidth="1"
-            />
-            <g transform={`translate(${istPt[0]},${istPt[1]}) rotate(45) scale(0.95)`}>
-              <path d={PLANE} fill="#fff" />
-            </g>
-            <text
-              x={istPt[0]}
-              y={istPt[1] - 22}
-              textAnchor="middle"
-              fontSize="11"
-              fontWeight="600"
-              fill="#fff"
-            >
-              İstanbul
-            </text>
-            <text
-              x={istPt[0]}
-              y={istPt[1] + 28}
-              textAnchor="middle"
-              fontSize="10"
-              fill="rgba(255,255,255,0.75)"
-            >
-              (IST)
-            </text>
-          </g>
-        )}
-
-        <circle
-          cx={CX}
-          cy={CY}
-          r={R}
-          fill="none"
-          stroke="rgba(255,255,255,0.12)"
-          strokeWidth="1"
-        />
-      </svg>
+      />
     </div>
   );
 }
