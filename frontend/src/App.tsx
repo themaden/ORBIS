@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
+import Toaster from "./components/Toaster";
 import RequireAuth from "./components/RequireAuth";
 import { NAV } from "./nav";
 
@@ -56,6 +57,7 @@ function Layout() {
           saklıdır.
         </footer>
       </main>
+      <Toaster />
     </div>
   );
 }

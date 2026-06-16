@@ -41,6 +41,9 @@ app.use((err, _req, res, _next) => {
 const httpServer = createServer(app);
 const io = new Server(httpServer, { cors: { origin: ORIGIN } });
 
+// Router'ların ulaşabilmesi için app'e bağla
+app.set("io", io);
+
 io.on("connection", async (socket) => {
   // Bağlanan istemciye anlık KPI gönder
   try {

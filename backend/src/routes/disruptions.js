@@ -28,6 +28,7 @@ disruptionsRouter.post("/", requireAuth, async (req, res) => {
     data: { flightId, type, reason },
     include: { flight: { include: { depAirport: true, arrAirport: true } } },
   });
+  req.app.get("io")?.emit("disruption", disruption);
   res.status(201).json(disruption);
 });
 
@@ -136,6 +137,7 @@ disruptionsRouter.post("/:id/apply", requireAuth, async (req, res) => {
     }),
   ]);
 
+  req.app.get("io")?.emit("apply", { disruptionId, passengerId, toFlightId, actor: req.user?.name });
   res.json({ ok: true, passengerId, toFlightId });
 });
 
