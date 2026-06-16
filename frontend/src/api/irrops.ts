@@ -56,7 +56,22 @@ export interface RecommendResult {
   alternativeCount: number;
   method: string;
   passengers: RecommendedPassenger[];
+  briefing?: string;
+  briefingSource?: string;
 }
+
+export interface ModelInfo {
+  delayModel: string;
+  note: string;
+  maeMin: number;
+  rmseMin: number;
+  auc: number;
+  featureImportances: Record<string, number>;
+  nTrain: number;
+  nTest: number;
+}
+
+export const getModelInfo = () => api<ModelInfo>("/api/model/info");
 
 export const getKpi = () => api<KpiSummary>("/api/kpi/summary");
 export const getDisruptions = () => api<DisruptionDTO[]>("/api/disruptions");

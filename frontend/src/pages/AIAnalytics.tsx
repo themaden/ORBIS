@@ -1,6 +1,7 @@
 import { Card, Stat } from "../components/Card";
 import { Skeleton, ErrorState } from "../components/Skeleton";
 import { api } from "../api/client";
+import { getModelInfo } from "../api/irrops";
 import { useApi } from "../hooks/useApi";
 import {
   TrendingUp,
@@ -31,6 +32,7 @@ export default function AIAnalytics() {
   const { data, loading, error, reload } = useApi<Analytics>(() =>
     api.getAnalytics()
   );
+  const model = useApi(() => getModelInfo());
 
   if (loading || !data) {
     return (
@@ -118,6 +120,46 @@ export default function AIAnalytics() {
           </ul>
         </Card>
 
+        {model.data && (
+          <Card title="ML Model — Gerçek Holdout Metrikleri" className="lg:col-span-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <Metric label="MAE (dk)" value={model.data.maeMin.toString()} accent="text-emerald-400" />
+              <Metric label="RMSE (dk)" value={model.data.rmseMin.toString()} />
+              <Metric label="AUC" value={model.data.auc.toString()} accent="text-cyan-400" />
+              <Metric
+                label="Eğitim / Test"
+                value={`${model.data.nTrain} / ${model.data.nTest}`}
+              />
+            </div>
+            <div className="mt-4">
+              <div className="text-[11px] text-white/55 uppercase tracking-wider mb-2">
+                Özellik Önemi
+              </div>
+              <div className="space-y-2">
+                {Object.entries(model.data.featureImportances)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([k, v]) => (
+                    <div key={k}>
+                      <div className="flex justify-between text-xs mb-0.5">
+                        <span className="text-white/80">{k}</span>
+                        <span className="text-white/55">{(v * 100).toFixed(1)}%</span>
+                      </div>
+                      <div className="h-1.5 bg-white/10 rounded-full">
+                        <div
+                          className="h-full bg-gradient-to-r from-thy to-red-400 rounded-full"
+                          style={{ width: `${v * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+            <div className="mt-3 text-[11px] text-white/40">
+              {model.data.delayModel} · {model.data.note}
+            </div>
+          </Card>
+        )}
+
         <Card title="Yapay Zeka Önerileri" className="lg:col-span-3">
           <ul className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             {data.suggestions.map((t, i) => (
@@ -132,6 +174,15 @@ export default function AIAnalytics() {
           </ul>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function Metric({ label, value, accent = "text-white" }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+      <div className="text-[10px] text-white/55 uppercase tracking-wider">{label}</div>
+      <div className={`text-xl font-bold mt-1 ${accent}`}>{value}</div>
     </div>
   );
 }

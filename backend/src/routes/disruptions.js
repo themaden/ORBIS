@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { recommendForDisruption } from "../services/recommend.js";
+import { generateBriefing } from "../services/briefing.js";
 
 export const disruptionsRouter = Router();
 
@@ -76,7 +77,8 @@ disruptionsRouter.get("/:id/passengers", async (req, res) => {
 // POST /api/disruptions/:id/recommend — öneri motorunu çalıştır (kaydeder + döner)
 disruptionsRouter.post("/:id/recommend", requireAuth, async (req, res) => {
   const out = await recommendForDisruption(req.params.id);
-  res.json(out);
+  const brief = await generateBriefing(out);
+  res.json({ ...out, briefing: brief.briefing, briefingSource: brief.source });
 });
 
 // POST /api/disruptions/:id/apply — bir öneriyi uygula (yolcuyu yeni uçuşa taşı)

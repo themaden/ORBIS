@@ -130,6 +130,18 @@ export default function Irrops() {
               Atama yöntemi: <span className="text-white/85 font-medium">{result.method}</span>
             </div>
 
+            {result.briefing && (
+              <Card title="Operatör Brifingi">
+                <div className="text-sm text-white/85 whitespace-pre-line leading-relaxed">
+                  {result.briefing}
+                </div>
+                <div className="mt-2 text-[11px] text-white/40 flex items-center gap-1">
+                  <Sparkles size={11} className="text-thy" />
+                  Kaynak: {result.briefingSource === "claude" ? "Claude LLM" : "şablon (anahtar yok)"}
+                </div>
+              </Card>
+            )}
+
             <Card title="Öncelik Sıralı Yeniden Yerleştirme Önerileri">
               <div className="space-y-3">
                 {result.passengers.map((p) => {
