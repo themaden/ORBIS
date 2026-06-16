@@ -33,3 +33,7 @@ npm-debug.log*
 ai/data/
 *.csv
 !**/example.csv
+
+# Eğitilmiş ML modelleri (otomatik üretilir)
+ai/models/
+*.joblib
