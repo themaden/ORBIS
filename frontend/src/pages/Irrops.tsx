@@ -3,7 +3,7 @@ import { AlertTriangle, Plane, Sparkles, Hotel, Utensils, RotateCcw, BadgeDollar
 import { Card } from "../components/Card";
 import { Skeleton, ErrorState } from "../components/Skeleton";
 import { useApi } from "../hooks/useApi";
-import { getDisruptions, recommend, applyProposal } from "../api/irrops";
+import { getDisruptions, recommend, applyProposal, getFlightRisk } from "../api/irrops";
 import type { RecommendResult } from "../api/irrops";
 
 const loyaltyColor = (l: string) =>
@@ -19,6 +19,7 @@ const careIcon: Record<string, typeof Hotel> = {
 
 export default function Irrops() {
   const { data: disruptions, loading, error, reload } = useApi(() => getDisruptions());
+  const risk = useApi(() => getFlightRisk());
   const [chosen, setChosen] = useState<string | null>(null);
   const [result, setResult] = useState<RecommendResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -198,6 +199,38 @@ export default function Irrops() {
               </div>
             </Card>
           </>
+        )}
+
+        {/* Proaktif risk uyarıları: ML'in muhtemel gördüğü sıradaki uçuşlar */}
+        {risk.data && risk.data.aiAvailable && (
+          <Card title="Yapay Zeka Erken Uyarı — Sıradaki Yüksek Riskli Uçuşlar">
+            <div className="space-y-1.5">
+              {risk.data.items
+                .filter((f) => (f.delayProbability ?? 0) >= 0.6)
+                .slice(0, 6)
+                .map((f) => (
+                  <div
+                    key={f.id}
+                    className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2 border border-white/10"
+                  >
+                    <div className="flex items-center gap-2 text-sm">
+                      <AlertTriangle size={14} className="text-thy" />
+                      <span className="font-medium">{f.flightNo}</span>
+                      <span className="text-white/55">· {f.route}</span>
+                    </div>
+                    <div className="text-xs text-white/70 flex items-center gap-3">
+                      <span>~{f.expectedDelayMin} dk</span>
+                      <span className="font-medium text-thy">
+                        %{Math.round((f.delayProbability ?? 0) * 100)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              {risk.data.items.filter((f) => (f.delayProbability ?? 0) >= 0.6).length === 0 && (
+                <div className="text-sm text-white/55">Yüksek riskli sıradaki uçuş yok.</div>
+              )}
+            </div>
+          </Card>
         )}
       </div>
     </div>

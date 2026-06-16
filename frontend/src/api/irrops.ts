@@ -73,6 +73,18 @@ export interface ModelInfo {
 
 export const getModelInfo = () => api<ModelInfo>("/api/model/info");
 
+export interface RiskFlightItem {
+  id: string;
+  flightNo: string;
+  route: string;
+  scheduledDep: string;
+  delayProbability: number | null;
+  expectedDelayMin: number | null;
+  band: string | null;
+}
+export const getFlightRisk = () =>
+  api<{ aiAvailable: boolean; items: RiskFlightItem[] }>("/api/risk/flights");
+
 export const getKpi = () => api<KpiSummary>("/api/kpi/summary");
 export const getDisruptions = () => api<DisruptionDTO[]>("/api/disruptions");
 export const recommend = (id: string) =>
