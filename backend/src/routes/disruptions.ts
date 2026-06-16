@@ -1,0 +1,198 @@
+import { Router, Request, Response } from "express";
+import { z } from "zod";
+import { prisma } from "../db.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
+import { validate } from "../middleware/validate.js";
+import { recommendForDisruption } from "../services/recommend.js";
+import { generateBriefing } from "../services/briefing.js";
+import { AuthRequest } from "../types.js";
+
+export const disruptionsRouter = Router();
+
+const CreateBody = z.object({
+  flightId: z.string().min(1, "flightId zorunlu"),
+  type: z.enum(["WEATHER", "TECHNICAL", "CREW", "AIRPORT"]).optional(),
+  reason: z.string().max(500).optional(),
+});
+
+const ApplyBody = z.object({
+  passengerId: z.string().min(1, "passengerId zorunlu"),
+  toFlightId: z.string().min(1, "toFlightId zorunlu"),
+});
+
+// GET /api/disruptions  — açık/çözülmüş tüm IRROPS olayları
+disruptionsRouter.get("/", async (_req: Request, res: Response) => {
+  const items = await prisma.disruption.findMany({
+    include: { flight: { include: { depAirport: true, arrAirport: true } } },
+    orderBy: { startedAt: "desc" },
+  });
+  res.json(items);
+});
+
+// POST /api/disruptions  { flightId, type, reason }  — yeni IRROPS olayı (uçuşu iptal işaretler)
+disruptionsRouter.post(
+  "/",
+  requireAuth,
+  requireRole("IOCC", "HUB_CONTROL"),
+  validate(CreateBody),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    const { flightId, type = "WEATHER", reason = "Operasyonel aksaklık" } = req.body as any;
+    const flight = await prisma.flight.findUnique({ where: { id: flightId } });
+    if (!flight) {
+      res.status(404).json({ error: "Uçuş bulunamadı" });
+      return;
+    }
+
+    await prisma.flight.update({ where: { id: flightId }, data: { status: "CANCELLED" } });
+    const disruption = await prisma.disruption.create({
+      data: { flightId, type, reason },
+      include: { flight: { include: { depAirport: true, arrAirport: true } } },
+    });
+    (req.app as any).get("io")?.emit("disruption", disruption);
+    res.status(201).json(disruption);
+  }
+);
+
+// GET /api/disruptions/:id/passengers — etkilenen yolcular (öncelik özetiyle)
+disruptionsRouter.get("/:id/passengers", async (req: Request, res: Response): Promise<void> => {
+  const disruption = await prisma.disruption.findUnique({
+    where: { id: req.params.id },
+    include: { flight: true },
+  });
+  if (!disruption) {
+    res.status(404).json({ error: "Olay bulunamadı" });
+    return;
+  }
+
+  const bookings = await prisma.booking.findMany({
+    where: { flightId: disruption.flightId },
+    include: { passenger: true, flight: { include: { arrAirport: true } } },
+  });
+
+  // Her yolcunun bağlantılı segmenti var mı?
+  const passengers = await Promise.all(
+    bookings.map(async (b) => {
+      const connection = await prisma.booking.findFirst({
+        where: { pnr: b.pnr, isConnection: true },
+        include: { flight: { include: { arrAirport: true } } },
+      });
+      return {
+        passengerId: b.passenger.id,
+        pnr: b.pnr,
+        fullName: b.passenger.fullName,
+        ticketClass: b.passenger.ticketClass,
+        loyalty: b.passenger.loyalty,
+        specialNeed: b.passenger.specialNeed,
+        seat: b.seat,
+        hasConnection: !!connection,
+        connectionFlight: (connection as any)?.flight?.flightNo ?? null,
+        actMin: (connection as any)?.actMin ?? null,
+      };
+    })
+  );
+
+  res.json({
+    disruptionId: disruption.id,
+    flightNo: (disruption.flight as any).flightNo,
+    affectedCount: passengers.length,
+    passengers,
+  });
+});
+
+// POST /api/disruptions/:id/recommend — öneri motorunu çalıştır (kaydeder + döner)
+disruptionsRouter.post("/:id/recommend", requireAuth, async (req: AuthRequest, res: Response) => {
+  const out = await recommendForDisruption(req.params.id);
+  const brief = await generateBriefing(out);
+  res.json({ ...out, briefing: brief.briefing, briefingSource: brief.source });
+});
+
+// POST /api/disruptions/:id/apply — bir öneriyi uygula (yolcuyu yeni uçuşa taşı)
+// body: { passengerId, toFlightId }
+disruptionsRouter.post(
+  "/:id/apply",
+  requireAuth,
+  validate(ApplyBody),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    const disruptionId = req.params.id;
+    const { passengerId, toFlightId } = req.body as any;
+    const disruption = await prisma.disruption.findUnique({ where: { id: disruptionId } });
+    if (!disruption) {
+      res.status(404).json({ error: "Olay bulunamadı" });
+      return;
+    }
+
+    const passenger = await prisma.passenger.findUnique({ where: { id: passengerId } });
+    if (!passenger) {
+      res.status(404).json({ error: "Yolcu bulunamadı" });
+      return;
+    }
+
+    // Yolcunun iptal uçuştaki ana segmenti
+    const booking = await prisma.booking.findFirst({
+      where: { passengerId, flightId: disruption.flightId, segmentOrder: 1 },
+    });
+    if (!booking) {
+      res.status(404).json({ error: "İlgili rezervasyon yok" });
+      return;
+    }
+
+    const isBusiness = (passenger as any).ticketClass === "BUSINESS";
+
+    await prisma.$transaction([
+      // bileti yeni uçuşa taşı
+      prisma.booking.update({ where: { id: booking.id }, data: { flightId: toFlightId } }),
+      // yeni uçuşta koltuğu doldur
+      prisma.flight.update({
+        where: { id: toFlightId },
+        data: isBusiness
+          ? { businessBooked: { increment: 1 } }
+          : { economyBooked: { increment: 1 } },
+      }),
+      // bu öneriyi uygulandı işaretle
+      prisma.rebookingProposal.updateMany({
+        where: { disruptionId, passengerId, toFlightId },
+        data: { status: "APPLIED" },
+      }),
+      // diğer önerileri reddet
+      prisma.rebookingProposal.updateMany({
+        where: { disruptionId, passengerId, toFlightId: { not: toFlightId } },
+        data: { status: "REJECTED" },
+      }),
+      // care aksiyonunu onayla
+      prisma.careAction.updateMany({
+        where: { disruptionId, passengerId },
+        data: { status: "APPROVED" },
+      }),
+      prisma.auditLog.create({
+        data: {
+          actor: req.user?.name || "bilinmeyen",
+          action: "proposal.apply",
+          entity: `Disruption:${disruptionId}`,
+          meta: { passengerId, toFlightId } as any,
+        },
+      }),
+    ]);
+
+    (req.app as any).get("io")?.emit("apply", {
+      disruptionId,
+      passengerId,
+      toFlightId,
+      actor: req.user?.name,
+    });
+    res.json({ ok: true, passengerId, toFlightId });
+  }
+);
+
+// GET /api/disruptions/:id/proposals — kayıtlı öneriler (yolcu + uçuş bilgisiyle)
+disruptionsRouter.get("/:id/proposals", async (req: Request, res: Response) => {
+  const proposals = await prisma.rebookingProposal.findMany({
+    where: { disruptionId: req.params.id },
+    include: { passenger: true, toFlight: true },
+    orderBy: [{ score: "desc" }, { rank: "asc" }],
+  });
+  const care = await prisma.careAction.findMany({
+    where: { disruptionId: req.params.id },
+    include: { passenger: true },
+  });
+  res.json({ proposals, care });
+});

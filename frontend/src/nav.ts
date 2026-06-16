@@ -1,4 +1,4 @@
-import { Plane, BrainCircuit, Users, MessageSquare, Settings, AlertTriangle } from "lucide-react";
+import { Plane, BrainCircuit, Users, MessageSquare, Settings, AlertTriangle, Lightbulb } from "lucide-react";
 import type { NavItem } from "./types";
 
 // Sidebar ve Layout (başlık) tarafından paylaşılan tek navigasyon kaynağı
@@ -20,6 +20,12 @@ export const NAV: NavItem[] = [
     title: "Yapay Zeka Analizleri",
     label: "Yapay Zeka Analizleri",
     icon: BrainCircuit,
+  },
+  {
+    path: "/aciklanabilirlik",
+    title: "Model Açıklanabilirliği",
+    label: "Açıklanabilirlik",
+    icon: Lightbulb,
   },
   {
     path: "/kaynaklar",

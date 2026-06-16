@@ -20,7 +20,10 @@ from .schemas import (
     DelayBatchResponse,
     DelayRequest,
     DelayResponse,
+    ModelExplanationResponse,
     ModelInfo,
+    PartialDependenceItem,
+    PartialDependenceResponse,
     RiskRequest,
     RiskResponse,
 )
@@ -95,3 +98,91 @@ def delay_batch(req: DelayBatchRequest) -> DelayBatchResponse:
 @app.post("/assign", response_model=AssignResponse)
 def assign(req: AssignRequest) -> AssignResponse:
     return optimal_assign(req)
+
+
+# ---- EXPLAINABILITY (SHAP yerine hafif local explainer) ----
+
+
+@app.post("/explain/delay", response_model=ModelExplanationResponse)
+def explain_delay(req: DelayRequest) -> ModelExplanationResponse:
+    """Gecikme tahmininin açıklaması — SHAP yerine hafif local explainer.
+
+    Her özelliğin tahmine katkısını gösterir:
+    - feature importance × normalized input value
+    - decision path from trees
+    - İnsan tarafından okunabilir insight
+    """
+    from .explainer import LocalExplainer
+    from .ml import MODEL
+
+    explainer = LocalExplainer(
+        MODEL.reg, MODEL.clf, MODEL.importances, delay_threshold=30
+    )
+    expl = explainer.explain(
+        req.departureHour, req.loadFactor, req.routeHaulHours, req.weatherSeverity
+    )
+
+    return ModelExplanationResponse(
+        prediction=expl.prediction,
+        probability=expl.probability,
+        features=[
+            {
+                "name": f.name,
+                "value": f.value,
+                "importance": f.importance,
+                "contribution": f.contribution,
+                "direction": f.direction,
+            }
+            for f in expl.features
+        ],
+        top_factor=expl.top_factor,
+        band=expl.band,
+        insight=expl.insight,
+    )
+
+
+@app.get("/explain/partial-dependence/{feature}", response_model=PartialDependenceResponse)
+def partial_dependence(feature: str) -> PartialDependenceResponse:
+    """Bir özelliğin çıkış üzerindeki etkisini gösterir (Partial Dependence curve).
+
+    Örn: `GET /explain/partial-dependence/weatherSeverity`
+    → hava şiddetinin 0'dan 1'e gidişinde tahmin nasıl değişir?
+    """
+    from .explainer import LocalExplainer
+    from .ml import MODEL
+
+    if feature not in ["departureHour", "loadFactor", "routeHaulHours", "weatherSeverity"]:
+        raise ValueError(
+            f"Geçersiz feature: {feature}. Desteklenenler: departureHour, loadFactor, routeHaulHours, weatherSeverity"
+        )
+
+    explainer = LocalExplainer(
+        MODEL.reg, MODEL.clf, MODEL.importances, delay_threshold=30
+    )
+    pd_vals = explainer.partial_dependence_summary(feature, num_samples=8)
+
+    # Şemaya uygun dönüştür
+    items = [
+        PartialDependenceItem(
+            feature_value=pd_item["feature_value"],
+            prediction_min=pd_item["prediction_min"],
+            probability=pd_item["probability"],
+        )
+        for pd_item in pd_vals
+    ]
+
+    return PartialDependenceResponse(feature=feature, values=items)
+
+
+@app.get("/explain/feature-importance")
+def feature_importance() -> dict:
+    """Global feature importance (tüm model tarafından)."""
+    from .ml import MODEL
+
+    return {
+        "importances": MODEL.importances,
+        "note": "Ağırlıklar 0-1 arası; büyük değer = daha etkili",
+        "ranking": sorted(
+            MODEL.importances.items(), key=lambda x: x[1], reverse=True
+        ),
+    }

@@ -1,0 +1,87 @@
+# ORBIS Command Center — Docker Compose
+# Tüm servisleri tek komutla başlatır:
+#   docker compose up --build
+#
+# Servisler:
+#   - db:       PostgreSQL 16 (port 5432)
+#   - ai:       FastAPI ML servisi (port 8000)
+#   - backend:  Express API + WebSocket (port 4000)
+#   - frontend: Nginx + React SPA (port 3000)
+
+services:
+  # ── PostgreSQL Veritabanı ──
+  db:
+    image: postgres:16-alpine
+    container_name: orbis-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: orbis
+      POSTGRES_PASSWORD: orbis
+      POSTGRES_DB: orbis
+    ports:
+      - "5432:5432"
+    volumes:
+      - orbis_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orbis"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── AI Servisi (FastAPI + scikit-learn) ──
+  ai:
+    build: ./ai
+    container_name: orbis-ai
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      BACKEND_ORIGIN: "http://backend:4000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Backend (Express + Prisma) ──
+  backend:
+    build: ./backend
+    container_name: orbis-backend
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: "4000"
+      FRONTEND_ORIGIN: "*"
+      AI_SERVICE_URL: "http://ai:8000"
+      DATABASE_URL: "postgresql://orbis:orbis@db:5432/orbis"
+      JWT_SECRET: "docker-dev-secret-change-in-production"
+    depends_on:
+      db:
+        condition: service_healthy
+    # DB migration + seed sonra başlat
+    command: >
+      sh -c "
+        npx prisma migrate deploy 2>/dev/null || npx prisma db push --skip-generate 2>/dev/null || true
+        node prisma/seed.mjs 2>/dev/null || true
+        npx tsx src/index.ts
+      "
+
+  # ── Frontend (Nginx + React SPA) ──
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: "http://localhost:4000"
+        VITE_AI_URL: "http://localhost:8000"
+    container_name: orbis-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+      - ai
+
+volumes:
+  orbis_pgdata:

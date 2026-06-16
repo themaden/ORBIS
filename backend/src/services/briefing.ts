@@ -4,8 +4,30 @@
 const KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = "claude-haiku-4-5-20251001";
 
-function fallback(rec) {
-  const lines = [];
+export interface BriefingInput {
+  flightNo: string;
+  affectedCount: number;
+  alternativeCount: number;
+  method: string;
+  passengers: Array<{
+    fullName: string;
+    score: number;
+    loyalty: string;
+    ticketClass: string;
+    hasConnection: boolean;
+    specialNeed?: string;
+    options?: Array<{ toFlightNo: string; addedDelayMin: number }>;
+    care?: { note: string };
+  }>;
+}
+
+export interface BriefingResult {
+  source: string;
+  briefing: string;
+}
+
+function fallback(rec: BriefingInput): BriefingResult {
+  const lines: string[] = [];
   lines.push(
     `${rec.flightNo} aksaklığı: ${rec.affectedCount} yolcu etkilendi, ${rec.alternativeCount} alternatif uçuş mevcut. Atama yöntemi: ${rec.method}.`
   );
@@ -21,8 +43,9 @@ function fallback(rec) {
   return { source: "fallback", briefing: lines.join("\n") };
 }
 
-export async function generateBriefing(rec) {
+export async function generateBriefing(rec: BriefingInput): Promise<BriefingResult> {
   if (!KEY) return fallback(rec);
+
   const summary = {
     ucus: rec.flightNo,
     etkilenen: rec.affectedCount,
@@ -65,7 +88,7 @@ export async function generateBriefing(rec) {
       signal: AbortSignal.timeout(8000),
     });
     if (!r.ok) throw new Error(`Claude ${r.status}`);
-    const data = await r.json();
+    const data = (await r.json()) as any;
     const text = data.content?.[0]?.text?.trim();
     if (!text) throw new Error("boş yanıt");
     return { source: "claude", briefing: text };

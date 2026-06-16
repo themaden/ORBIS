@@ -9,11 +9,11 @@ dotenv.config();
 const PORT = process.env.PORT || 4000;
 const ORIGIN = process.env.FRONTEND_ORIGIN || "*";
 
-const app = createApp({ origin: ORIGIN });
+const app = createApp({ origin: String(ORIGIN) });
 
 // HTTP + WebSocket sunucusu
 const httpServer = createServer(app);
-const io = new Server(httpServer, { cors: { origin: ORIGIN } });
+const io = new Server(httpServer, { cors: { origin: String(ORIGIN) } });
 
 app.set("io", io);
 

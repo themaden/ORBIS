@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { prisma } from "../db.js";
 import { predictDelays } from "../services/aiClient.js";
 import { getWeatherSeverity } from "../services/weather.js";
@@ -6,7 +6,7 @@ import { getWeatherSeverity } from "../services/weather.js";
 export const riskRouter = Router();
 
 // GET /api/risk/flights — sıradaki uçuşların ML risk skoru (proaktif uyarı)
-riskRouter.get("/flights", async (_req, res) => {
+riskRouter.get("/flights", async (_req: Request, res: Response) => {
   const upcoming = await prisma.flight.findMany({
     where: { status: { in: ["PLANNED", "BOARDING", "DELAYED"] } },
     include: { depAirport: true, arrAirport: true },
@@ -16,10 +16,10 @@ riskRouter.get("/flights", async (_req, res) => {
 
   // Gerçek hava verisi (WEATHER_API_KEY varsa OpenWeatherMap; yoksa 0.3)
   const weatherFor = await Promise.all(
-    upcoming.map((f) => getWeatherSeverity(f.arrAirport.lat, f.arrAirport.lon))
+    upcoming.map((f: any) => getWeatherSeverity(f.arrAirport.lat, f.arrAirport.lon))
   );
 
-  const items = upcoming.map((f, idx) => ({
+  const items = upcoming.map((f: any, idx: number) => ({
     departureHour: new Date(f.scheduledDep).getHours(),
     loadFactor: Math.min(
       1,
@@ -30,7 +30,7 @@ riskRouter.get("/flights", async (_req, res) => {
   }));
 
   const preds = await predictDelays(items);
-  const enriched = upcoming.map((f, i) => ({
+  const enriched = upcoming.map((f: any, i: number) => ({
     id: f.id,
     flightNo: f.flightNo,
     route: `${f.depAirport.iata} → ${f.arrAirport.iata}`,

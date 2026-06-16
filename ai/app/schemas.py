@@ -106,3 +106,40 @@ class AssignResponse(BaseModel):
     assignments: list[Assignment]
     assignedCount: int
     method: str = "min-cost-flow"
+
+
+# ---- Explainability (SHAP yerine hafif local explainer) ----
+class ExplanationFeature(BaseModel):
+    """Bir özelliğin tahmine katkısı."""
+
+    name: str  # örn "weatherSeverity"
+    value: float  # normalize edilmiş girdi (0-1)
+    importance: float  # global feature importance
+    contribution: float  # local katkı büyüklüğü
+    direction: str  # "↑ arttırıyor" veya "↓ azaltıyor"
+
+
+class ModelExplanationResponse(BaseModel):
+    """Tahmine ait açıklama (SHAP yerine hafif local)."""
+
+    prediction: float  # tahmini gecikme dakika
+    probability: float  # gecikme olasılığı (0-1)
+    features: list[ExplanationFeature]  # sıralanmış katkı
+    top_factor: str  # en etkili faktör
+    band: str  # "Yüksek" / "Orta" / "Düşük"
+    insight: str  # insan tarafından okunabilir açıklama
+
+
+class PartialDependenceItem(BaseModel):
+    """Partial dependence: bir özelliğin değişmesiyle tahmin nasıl değişir."""
+
+    feature_value: float
+    prediction_min: float
+    probability: float
+
+
+class PartialDependenceResponse(BaseModel):
+    """Partial dependence curve approximation (görselleştirme için)."""
+
+    feature: str
+    values: list[PartialDependenceItem]

@@ -14,6 +14,7 @@ const AIAnalytics = lazy(() => import("./pages/AIAnalytics"));
 const Resources = lazy(() => import("./pages/Resources"));
 const Communications = lazy(() => import("./pages/Communications"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const Explainability = lazy(() => import("./pages/Explainability"));
 const Login = lazy(() => import("./pages/Login"));
 
 function PageLoader() {
@@ -77,6 +78,7 @@ export default function App() {
         <Route path="/" element={<Operations />} />
         <Route path="/irrops" element={<Irrops />} />
         <Route path="/analiz" element={<AIAnalytics />} />
+        <Route path="/aciklanabilirlik" element={<Explainability />} />
         <Route path="/kaynaklar" element={<Resources />} />
         <Route path="/iletisim" element={<Communications />} />
         <Route path="/ayarlar" element={<SettingsPage />} />

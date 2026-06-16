@@ -1,5 +1,4 @@
-// Express uygulamasını test edilebilir biçimde dışa açar (listen yok).
-import express from "express";
+import express, { Express, Request, Response, NextFunction } from "express";
 import "express-async-errors";
 import cors from "cors";
 import helmet from "helmet";
@@ -7,8 +6,9 @@ import rateLimit from "express-rate-limit";
 import swaggerUi from "swagger-ui-express";
 import { router as apiRouter } from "./routes/index.js";
 import { openapi } from "./openapi.js";
+import { ApiOptions } from "./types.js";
 
-export function createApp(opts = {}) {
+export function createApp(opts: ApiOptions = {}): Express {
   const app = express();
 
   // Güvenlik başlıkları (Swagger UI'ın CSP'sini bozmayacak şekilde)
@@ -32,12 +32,12 @@ export function createApp(opts = {}) {
     rateLimit({ windowMs: 60_000, max: 20, standardHeaders: true, legacyHeaders: false })
   );
 
-  app.get("/health", (_req, res) => {
+  app.get("/health", (_req: Request, res: Response) => {
     res.json({ status: "ok", service: "orbis-backend", time: new Date().toISOString() });
   });
 
   // Swagger UI + OpenAPI JSON
-  app.get("/openapi.json", (_req, res) => res.json(openapi));
+  app.get("/openapi.json", (_req: Request, res: Response) => res.json(openapi));
   app.use(
     "/api/docs",
     swaggerUi.serve,
@@ -46,14 +46,16 @@ export function createApp(opts = {}) {
 
   app.use("/api", apiRouter);
 
-  app.use((_req, res) => res.status(404).json({ error: "Bulunamadı" }));
+  app.use((_req: Request, res: Response) => res.status(404).json({ error: "Bulunamadı" }));
 
-  // eslint-disable-next-line no-unused-vars
-  app.use((err, _req, res, _next) => {
+  // Error handler
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const dbDown = String(err?.message || "").includes("Can't reach database");
     if (!opts.silent) console.error("API hatası:", err?.message || err);
     res.status(dbDown ? 503 : 500).json({
-      error: dbDown ? "Veritabanına ulaşılamıyor (Docker/Postgres çalışıyor mu?)" : "Sunucu hatası",
+      error: dbDown
+        ? "Veritabanına ulaşılamıyor (Docker/Postgres çalışıyor mu?)"
+        : "Sunucu hatası",
     });
   });
 

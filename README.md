@@ -543,7 +543,36 @@ uvicorn app.main:app --port 8000   # → http://localhost:8000/docs
 
 ### Opsiyonel API key'ler
 - `ANTHROPIC_API_KEY` — LLM brifing (yoksa şablon fallback)
-- `WEATHER_API_KEY` — hava verisi (henüz entegre değil)
+- `WEATHER_API_KEY` — OpenWeatherMap (varsa proaktif risk gerçek havadan beslenir)
+
+### 🚢 Bulut Deploy (opsiyonel)
+
+Üç servis ayrı ayrı deploy edilir:
+
+**Frontend → Vercel**
+1. https://vercel.com → New Project → repo seç
+2. Root Directory: `frontend`
+3. Environment: `VITE_API_URL=https://<backend-url>`
+4. Deploy (`frontend/vercel.json` SPA rewrite zaten ayarlı)
+
+**Backend → Railway** (PostgreSQL eklentisiyle)
+1. https://railway.app → New Project → "Deploy from GitHub"
+2. Servisi ekle, Root Directory: `backend`
+3. Aynı projede **Add → Database → PostgreSQL** ekle
+4. Backend → Variables:
+   - `DATABASE_URL=${{Postgres.DATABASE_URL}}`
+   - `JWT_SECRET=<rastgele 48 hex>`
+   - `AI_SERVICE_URL=https://<ai-url>`
+   - `FRONTEND_ORIGIN=https://<frontend-url>`
+5. Deploy → ilk başarıdan sonra Railway shell'de bir kere: `npx prisma migrate deploy && node prisma/seed.mjs`
+
+**AI → Railway**
+1. Aynı projede yeni servis, Root Directory: `ai`
+2. Variables: `BACKEND_ORIGIN=https://<backend-url>` (+ opsiyonel `WEATHER_API_KEY`)
+3. Deploy
+
+> Her klasördeki `Dockerfile` + `railway.json` Railway tarafından otomatik kullanılır.
+> Frontend `vercel.json` aynı şekilde Vercel'de.
 
 ---
 
@@ -607,12 +636,14 @@ uvicorn app.main:app --port 8000   # → http://localhost:8000/docs
 ### ⏳ Opsiyonel (bilinçli ertelenen)
 - [ ] **Gerçek veri seti** (Kaggle BTS / OpenSky) — sentetik yerine
 - [ ] **Hava durumu API** entegrasyonu (`WEATHER_API_KEY`) — risk skorunu beslesin
-- [ ] **Backend TypeScript'e geçiş** + Zod validation + RBAC
-- [ ] **OpenAPI/Swagger** backend dokümanı
-- [ ] **Backend testleri** (Vitest + supertest)
+- [x] **Backend TypeScript'e geçiş** + Zod validation + RBAC ✅
+- [x] **OpenAPI/Swagger** backend dokümanı ✅
+- [x] **Backend testleri** (Vitest + supertest) ✅
+- [x] **Bulut deploy hazırlığı** (Vercel + Railway + Dockerfile'lar) ✅
+- [x] **Gerçek BTS verisiyle ML eğitimi** (500K satır, MAE 6.8dk, AUC 0.979) ✅
+- [x] **OpenWeatherMap entegrasyonu** ✅
 - [ ] **i18n** (TR/EN) — Ayarlar'daki "Dil" seçimini etkinleştir
-- [ ] **Bulut deploy** (Vercel + Railway/Fly + managed Postgres)
-- [ ] **Gerçek ML feature engineering** (havayolu, havalimanı, weekday, distance)
+- [ ] **Gerçek production deploy** (Vercel + Railway hesapları gerekir)
 
 ---
 
