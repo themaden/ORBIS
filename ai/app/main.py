@@ -54,9 +54,15 @@ def health() -> dict:
 def model_info() -> ModelInfo:
     from .ml import MODEL
 
+    note = (
+        "Gerçek BTS verisiyle eğitildi; holdout test ile değerlendirildi."
+        if not MODEL.source.startswith("synthetic")
+        else "Sentetik veri, holdout test ile değerlendirildi (gerçek veriyle değiştirilebilir)."
+    )
     return ModelInfo(
         delayModel="RandomForest (regresyon + sınıflandırma)",
-        note="Sentetik veri, holdout test ile değerlendirildi (gerçek veriyle değiştirilebilir).",
+        dataSource=MODEL.source,
+        note=note,
         maeMin=MODEL.mae,
         rmseMin=MODEL.rmse,
         auc=MODEL.auc,

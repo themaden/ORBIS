@@ -28,3 +28,8 @@ npm-debug.log*
 .DS_Store
 .vscode/
 .idea/
+
+# AI veri setleri (büyük, dışarıdan indirilir)
+ai/data/
+*.csv
+!**/example.csv

@@ -49,6 +49,7 @@ class DelayBatchResponse(BaseModel):
 
 class ModelInfo(BaseModel):
     delayModel: str
+    dataSource: str  # "synthetic" veya "BTS 2008 (Kaggle)..."
     note: str
     maeMin: float  # holdout ortalama mutlak hata (dk)
     rmseMin: float

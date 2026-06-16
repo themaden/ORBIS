@@ -62,6 +62,7 @@ export interface RecommendResult {
 
 export interface ModelInfo {
   delayModel: string;
+  dataSource: string;
   note: string;
   maeMin: number;
   rmseMin: number;

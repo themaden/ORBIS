@@ -154,8 +154,19 @@ export default function AIAnalytics() {
                   ))}
               </div>
             </div>
-            <div className="mt-3 text-[11px] text-white/40">
-              {model.data.delayModel} · {model.data.note}
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+              <span
+                className={`px-2 py-0.5 rounded-full border ${
+                  model.data.dataSource.startsWith("synthetic")
+                    ? "text-orange-300 border-orange-500/40 bg-orange-500/10"
+                    : "text-emerald-300 border-emerald-500/40 bg-emerald-500/10"
+                }`}
+              >
+                Veri: {model.data.dataSource}
+              </span>
+              <span className="text-white/45">
+                {model.data.delayModel} · {model.data.note}
+              </span>
             </div>
           </Card>
         )}
