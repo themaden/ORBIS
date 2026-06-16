@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getSocket } from "../api/socket";
 import { AlertTriangle, Plane, Sparkles, Hotel, Utensils, RotateCcw, BadgeDollarSign, Check } from "lucide-react";
 import { Card } from "../components/Card";
 import { Skeleton, ErrorState } from "../components/Skeleton";
@@ -20,6 +21,23 @@ const careIcon: Record<string, typeof Hotel> = {
 export default function Irrops() {
   const { data: disruptions, loading, error, reload } = useApi(() => getDisruptions());
   const risk = useApi(() => getFlightRisk());
+
+  // Yeni disruption gelirse listeyi tazele; apply gelirse risk + sıralamayı tazele
+  useEffect(() => {
+    const s = getSocket();
+    const onDisruption = () => {
+      reload();
+      risk.reload();
+    };
+    const onApply = () => risk.reload();
+    s.on("disruption", onDisruption);
+    s.on("apply", onApply);
+    return () => {
+      s.off("disruption", onDisruption);
+      s.off("apply", onApply);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [chosen, setChosen] = useState<string | null>(null);
   const [result, setResult] = useState<RecommendResult | null>(null);
   const [busy, setBusy] = useState(false);

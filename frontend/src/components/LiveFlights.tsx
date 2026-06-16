@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Plane, AlertTriangle } from "lucide-react";
 import { useApi } from "../hooks/useApi";
 import { getFlights, getFlightRisk } from "../api/irrops";
+import { getSocket } from "../api/socket";
 
 const statusColor: Record<string, string> = {
   PLANNED: "text-cyan-400",
@@ -15,6 +16,22 @@ const statusColor: Record<string, string> = {
 export default function LiveFlights() {
   const flights = useApi(() => getFlights());
   const risk = useApi(() => getFlightRisk());
+
+  // Disruption/apply olunca tabloyu canlı yenile
+  useEffect(() => {
+    const s = getSocket();
+    const refresh = () => {
+      flights.reload();
+      risk.reload();
+    };
+    s.on("disruption", refresh);
+    s.on("apply", refresh);
+    return () => {
+      s.off("disruption", refresh);
+      s.off("apply", refresh);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const riskMap = useMemo(() => {
     const m: Record<string, number> = {};
