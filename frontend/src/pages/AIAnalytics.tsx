@@ -130,6 +130,20 @@ export default function AIAnalytics() {
                 label="Eğitim / Test"
                 value={`${model.data.nTrain} / ${model.data.nTest}`}
               />
+              <Metric label="Precision" value={model.data.precision.toString()} accent="text-emerald-400" />
+              <Metric label="Recall" value={model.data.recall.toString()} accent="text-cyan-400" />
+              <Metric label="F1" value={model.data.f1.toString()} accent="text-thy" />
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                <div className="text-[10px] text-white/55 uppercase tracking-wider mb-1">
+                  Confusion (Gecikme &gt; 30dk)
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-[11px]">
+                  <span className="text-emerald-400">TP {model.data.confusion.tp}</span>
+                  <span className="text-orange-400">FP {model.data.confusion.fp}</span>
+                  <span className="text-thy">FN {model.data.confusion.fn}</span>
+                  <span className="text-white/60">TN {model.data.confusion.tn}</span>
+                </div>
+              </div>
             </div>
             <div className="mt-4">
               <div className="text-[11px] text-white/55 uppercase tracking-wider mb-2">

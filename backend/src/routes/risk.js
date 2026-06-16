@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../db.js";
 import { predictDelays } from "../services/aiClient.js";
+import { getWeatherSeverity } from "../services/weather.js";
 
 export const riskRouter = Router();
 
@@ -13,14 +14,19 @@ riskRouter.get("/flights", async (_req, res) => {
     take: 30,
   });
 
-  const items = upcoming.map((f) => ({
+  // Gerçek hava verisi (WEATHER_API_KEY varsa OpenWeatherMap; yoksa 0.3)
+  const weatherFor = await Promise.all(
+    upcoming.map((f) => getWeatherSeverity(f.arrAirport.lat, f.arrAirport.lon))
+  );
+
+  const items = upcoming.map((f, idx) => ({
     departureHour: new Date(f.scheduledDep).getHours(),
     loadFactor: Math.min(
       1,
       (f.economyBooked + f.businessBooked) / Math.max(1, f.economyCap + f.businessCap)
     ),
     routeHaulHours: Math.max(1, (f.scheduledArr - f.scheduledDep) / 3600000),
-    weatherSeverity: 0.4, // ileride gerçek hava API'sinden
+    weatherSeverity: weatherFor[idx],
   }));
 
   const preds = await predictDelays(items);

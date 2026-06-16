@@ -15,6 +15,7 @@ from .model import predict_delay, score_risk
 from .schemas import (
     AssignRequest,
     AssignResponse,
+    ConfusionMatrix,
     DelayBatchRequest,
     DelayBatchResponse,
     DelayRequest,
@@ -66,6 +67,10 @@ def model_info() -> ModelInfo:
         maeMin=MODEL.mae,
         rmseMin=MODEL.rmse,
         auc=MODEL.auc,
+        precision=MODEL.precision,
+        recall=MODEL.recall,
+        f1=MODEL.f1,
+        confusion=ConfusionMatrix(**MODEL.cm),
         featureImportances=MODEL.importances,
         nTrain=MODEL.n_train,
         nTest=MODEL.n_test,

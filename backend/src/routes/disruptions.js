@@ -1,10 +1,23 @@
 import { Router } from "express";
+import { z } from "zod";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { validate } from "../middleware/validate.js";
 import { recommendForDisruption } from "../services/recommend.js";
 import { generateBriefing } from "../services/briefing.js";
 
 export const disruptionsRouter = Router();
+
+const CreateBody = z.object({
+  flightId: z.string().min(1, "flightId zorunlu"),
+  type: z.enum(["WEATHER", "TECHNICAL", "CREW", "AIRPORT"]).optional(),
+  reason: z.string().max(500).optional(),
+});
+
+const ApplyBody = z.object({
+  passengerId: z.string().min(1, "passengerId zorunlu"),
+  toFlightId: z.string().min(1, "toFlightId zorunlu"),
+});
 
 // GET /api/disruptions  — açık/çözülmüş tüm IRROPS olayları
 disruptionsRouter.get("/", async (_req, res) => {
@@ -16,10 +29,8 @@ disruptionsRouter.get("/", async (_req, res) => {
 });
 
 // POST /api/disruptions  { flightId, type, reason }  — yeni IRROPS olayı (uçuşu iptal işaretler)
-disruptionsRouter.post("/", requireAuth, async (req, res) => {
-  const { flightId, type = "WEATHER", reason = "Operasyonel aksaklık" } = req.body || {};
-  if (!flightId) return res.status(400).json({ error: "flightId gerekli" });
-
+disruptionsRouter.post("/", requireAuth, validate(CreateBody), async (req, res) => {
+  const { flightId, type = "WEATHER", reason = "Operasyonel aksaklık" } = req.body;
   const flight = await prisma.flight.findUnique({ where: { id: flightId } });
   if (!flight) return res.status(404).json({ error: "Uçuş bulunamadı" });
 
@@ -84,12 +95,9 @@ disruptionsRouter.post("/:id/recommend", requireAuth, async (req, res) => {
 
 // POST /api/disruptions/:id/apply — bir öneriyi uygula (yolcuyu yeni uçuşa taşı)
 // body: { passengerId, toFlightId }
-disruptionsRouter.post("/:id/apply", requireAuth, async (req, res) => {
+disruptionsRouter.post("/:id/apply", requireAuth, validate(ApplyBody), async (req, res) => {
   const disruptionId = req.params.id;
-  const { passengerId, toFlightId } = req.body || {};
-  if (!passengerId || !toFlightId)
-    return res.status(400).json({ error: "passengerId ve toFlightId gerekli" });
-
+  const { passengerId, toFlightId } = req.body;
   const disruption = await prisma.disruption.findUnique({ where: { id: disruptionId } });
   if (!disruption) return res.status(404).json({ error: "Olay bulunamadı" });
 

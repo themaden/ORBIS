@@ -47,6 +47,13 @@ class DelayBatchResponse(BaseModel):
     predictions: list[DelayResponse]
 
 
+class ConfusionMatrix(BaseModel):
+    tp: int  # gerçek pozitif (önemli gecikme tahmin edildi, gerçekten geç)
+    fp: int  # yanlış alarm
+    tn: int  # doğru negatif
+    fn: int  # kaçırılan gecikme
+
+
 class ModelInfo(BaseModel):
     delayModel: str
     dataSource: str  # "synthetic" veya "BTS 2008 (Kaggle)..."
@@ -54,6 +61,10 @@ class ModelInfo(BaseModel):
     maeMin: float  # holdout ortalama mutlak hata (dk)
     rmseMin: float
     auc: float  # önemli gecikme sınıflandırma AUC
+    precision: float
+    recall: float
+    f1: float
+    confusion: ConfusionMatrix
     featureImportances: dict[str, float]
     nTrain: int
     nTest: int

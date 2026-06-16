@@ -23,7 +23,11 @@ import pandas as pd
 from joblib import dump, load
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import (
+    confusion_matrix,
+    f1_score,
     mean_absolute_error,
+    precision_score,
+    recall_score,
     roc_auc_score,
     root_mean_squared_error,
 )
@@ -159,6 +163,10 @@ class DelayModel:
                 self.mae = state["mae"]
                 self.rmse = state["rmse"]
                 self.auc = state["auc"]
+                self.precision = state.get("precision", 0.0)
+                self.recall = state.get("recall", 0.0)
+                self.f1 = state.get("f1", 0.0)
+                self.cm = state.get("cm", {"tp": 0, "fp": 0, "tn": 0, "fn": 0})
                 self.importances = state["importances"]
                 self.n_train = state["n_train"]
                 self.n_test = state["n_test"]
@@ -201,9 +209,22 @@ class DelayModel:
         y_te_cls = (y_te > DELAY_THRESHOLD).astype(int)
         if 0 < y_te_cls.sum() < len(y_te_cls):
             proba = self.clf.predict_proba(X_te)[:, 1]
+            pred_cls = self.clf.predict(X_te)
             self.auc = round(float(roc_auc_score(y_te_cls, proba)), 3)
+            self.precision = round(float(precision_score(y_te_cls, pred_cls, zero_division=0)), 3)
+            self.recall = round(float(recall_score(y_te_cls, pred_cls, zero_division=0)), 3)
+            self.f1 = round(float(f1_score(y_te_cls, pred_cls, zero_division=0)), 3)
+            cm = confusion_matrix(y_te_cls, pred_cls, labels=[0, 1])
+            self.cm = {
+                "tn": int(cm[0, 0]),
+                "fp": int(cm[0, 1]),
+                "fn": int(cm[1, 0]),
+                "tp": int(cm[1, 1]),
+            }
         else:
             self.auc = 0.5
+            self.precision = self.recall = self.f1 = 0.0
+            self.cm = {"tp": 0, "fp": 0, "tn": 0, "fn": 0}
 
         self.importances = {
             f: round(float(v), 3)
@@ -221,6 +242,10 @@ class DelayModel:
                     "mae": self.mae,
                     "rmse": self.rmse,
                     "auc": self.auc,
+                    "precision": self.precision,
+                    "recall": self.recall,
+                    "f1": self.f1,
+                    "cm": self.cm,
                     "importances": self.importances,
                     "n_train": self.n_train,
                     "n_test": self.n_test,

@@ -67,6 +67,10 @@ export interface ModelInfo {
   maeMin: number;
   rmseMin: number;
   auc: number;
+  precision: number;
+  recall: number;
+  f1: number;
+  confusion: { tp: number; fp: number; tn: number; fn: number };
   featureImportances: Record<string, number>;
   nTrain: number;
   nTest: number;
