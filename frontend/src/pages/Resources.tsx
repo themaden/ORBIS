@@ -1,20 +1,19 @@
 import { Card, Stat } from "../components/Card";
 import { Skeleton, ErrorState } from "../components/Skeleton";
-import { api } from "../api/client";
 import { useApi } from "../hooks/useApi";
 import { Plane, Users, Hotel, Wrench, type LucideIcon } from "lucide-react";
-import type { FleetItem } from "../types";
+import { getResourceFleet, getResourceStats, getResourceUsage } from "../api/irrops";
 
 const ICONS: Record<string, LucideIcon> = { Plane, Users, Hotel, Wrench };
 
-const colorFor = (s: FleetItem["status"]) =>
+const colorFor = (s: string) =>
   s === "Uçuşta" ? "text-emerald-400" :
   s === "Bakımda" ? "text-orange-400" : "text-cyan-400";
 
 export default function Resources() {
-  const stats = useApi(() => api.getResourceStats());
-  const fleet = useApi(() => api.getFleet());
-  const usage = useApi(() => api.getResourceUsage());
+  const stats = useApi(() => getResourceStats());
+  const fleet = useApi(() => getResourceFleet());
+  const usage = useApi(() => getResourceUsage());
 
   return (
     <div className="flex-1 p-6 overflow-y-auto">

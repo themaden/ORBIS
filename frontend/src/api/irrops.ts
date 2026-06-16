@@ -101,6 +101,28 @@ export interface FlightDTO {
 }
 export const getFlights = () => api<FlightDTO[]>("/api/flights");
 
+export interface ResourceFleetItem {
+  code: string;
+  model: string;
+  status: string;
+  route: string;
+  progress: number;
+}
+export interface ResourceStat {
+  label: string;
+  value: string;
+  hint: string;
+  accent: string;
+}
+export interface ResourceUsage {
+  label: string;
+  v: number;
+  icon: string;
+}
+export const getResourceFleet = () => api<ResourceFleetItem[]>("/api/resources/fleet");
+export const getResourceStats = () => api<ResourceStat[]>("/api/resources/stats");
+export const getResourceUsage = () => api<ResourceUsage[]>("/api/resources/usage");
+
 export const getKpi = () => api<KpiSummary>("/api/kpi/summary");
 export const getDisruptions = () => api<DisruptionDTO[]>("/api/disruptions");
 export const recommend = (id: string) =>

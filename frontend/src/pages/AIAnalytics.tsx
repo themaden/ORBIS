@@ -60,10 +60,40 @@ export default function AIAnalytics() {
     );
   }
 
+  // Üst kartlar: artık gerçek ML metriklerinden + DB'den (mock değil)
+  const realStats = model.data
+    ? [
+        {
+          label: "Tahmin Doğruluğu",
+          value: `%${Math.round(model.data.auc * 100)}`,
+          hint: `AUC ${model.data.auc}`,
+          accent: "text-emerald-400",
+        },
+        {
+          label: "Ortalama Hata",
+          value: `${model.data.maeMin} dk`,
+          hint: `RMSE ${model.data.rmseMin}`,
+          accent: "text-white",
+        },
+        {
+          label: "Aktif Modeller",
+          value: "1",
+          hint: "RandomForest (delay_v2)",
+          accent: "text-cyan-400",
+        },
+        {
+          label: "Eğitim Verisi",
+          value: `${(model.data.nTrain / 1000).toFixed(0)}K`,
+          hint: model.data.dataSource.split("·")[0]?.trim() || "BTS 2008",
+          accent: "text-thy",
+        },
+      ]
+    : data.stats;
+
   return (
     <div className="flex-1 p-6 overflow-y-auto">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        {data.stats.map((s) => (
+        {realStats.map((s) => (
           <Stat key={s.label} {...s} />
         ))}
       </div>
