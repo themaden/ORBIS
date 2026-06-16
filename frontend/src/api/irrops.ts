@@ -85,6 +85,17 @@ export interface RiskFlightItem {
 export const getFlightRisk = () =>
   api<{ aiAvailable: boolean; items: RiskFlightItem[] }>("/api/risk/flights");
 
+export interface FlightDTO {
+  id: string;
+  flightNo: string;
+  status: string;
+  scheduledDep: string;
+  delayMin: number;
+  depAirport: { iata: string };
+  arrAirport: { iata: string; city: string };
+}
+export const getFlights = () => api<FlightDTO[]>("/api/flights");
+
 export const getKpi = () => api<KpiSummary>("/api/kpi/summary");
 export const getDisruptions = () => api<DisruptionDTO[]>("/api/disruptions");
 export const recommend = (id: string) =>
