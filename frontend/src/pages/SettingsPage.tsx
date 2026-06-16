@@ -1,5 +1,5 @@
 import { Card } from "../components/Card";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bell, Globe, Moon, Shield, KeyRound, Save, RotateCcw,
   ShieldCheck, AlertTriangle, Check, type LucideIcon,
@@ -47,23 +47,22 @@ const PARAM_META: Record<string, { label: string; unit: string; min: number; max
 // ---- Maliyet Parametreleri Paneli ----
 function CostParamsPanel() {
   const { data: params, loading, reload } = useApi(() => getCostParams());
-  const [draft, setDraft] = useState<Record<string, number>>({});
+  const [overrides, setOverrides] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    if (params) {
-      setDraft(Object.fromEntries(params.map((p) => [p.key, p.value])));
-    }
-  }, [params]);
+  const draft = useMemo(() => {
+    const base = Object.fromEntries((params ?? []).map((p) => [p.key, p.value]));
+    return { ...base, ...overrides };
+  }, [params, overrides]);
 
   const handleChange = (key: string, val: number) => {
-    setDraft((d) => ({ ...d, [key]: val }));
+    setOverrides((o) => ({ ...o, [key]: val }));
     setSaved(false);
   };
 
   const handleReset = () => {
-    if (params) setDraft(Object.fromEntries(params.map((p) => [p.key, p.value])));
+    setOverrides({});
     setSaved(false);
   };
 
