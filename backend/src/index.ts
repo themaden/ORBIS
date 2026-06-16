@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { Server } from "socket.io";
 import { createApp } from "./app.js";
 import { computeKpi } from "./services/kpiService.js";
+import { startProactiveEngine } from "./services/proactive.js";
 
 dotenv.config();
 
@@ -36,4 +37,5 @@ setInterval(async () => {
 
 httpServer.listen(PORT, () => {
   console.log(`🛫 ORBIS backend + WebSocket çalışıyor → http://localhost:${PORT}`);
+  startProactiveEngine(io);
 });

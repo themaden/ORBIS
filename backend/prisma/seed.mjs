@@ -8,20 +8,31 @@ const prisma = new PrismaClient();
 const rnd = (n) => Math.floor(Math.random() * n);
 const pick = (arr) => arr[rnd(arr.length)];
 
-// IST hub + destinasyonlar [iata, şehir, ülke, lat, lon]
+// IST gate havuzu — IST'de 182 gate var, A/B/C/D/E/F/G terminalleri
+const IST_GATE_PREFIXES = ["A", "B", "C", "D", "E", "F", "G"];
+function randomGate(iata) {
+  if (iata === "IST") {
+    const prefix = pick(IST_GATE_PREFIXES);
+    return `${prefix}${1 + rnd(28)}`;
+  }
+  const num = 1 + rnd(40);
+  return num < 10 ? `0${num}` : `${num}`;
+}
+
+// IST hub + destinasyonlar [iata, şehir, ülke, lat, lon, isHub, gateCount, terminals]
 const AIRPORTS = [
-  ["IST", "İstanbul", "Türkiye", 41.26, 28.74, true],
-  ["FRA", "Frankfurt", "Almanya", 50.03, 8.57, false],
-  ["LHR", "Londra", "İngiltere", 51.47, -0.45, false],
-  ["JFK", "New York", "ABD", 40.64, -73.78, false],
-  ["CDG", "Paris", "Fransa", 49.0, 2.55, false],
-  ["AMS", "Amsterdam", "Hollanda", 52.31, 4.76, false],
-  ["DXB", "Dubai", "BAE", 25.25, 55.36, false],
-  ["NRT", "Tokyo", "Japonya", 35.76, 140.39, false],
-  ["SIN", "Singapur", "Singapur", 1.36, 103.99, false],
-  ["GRU", "São Paulo", "Brezilya", -23.43, -46.47, false],
-  ["MAD", "Madrid", "İspanya", 40.47, -3.56, false],
-  ["SAW", "İstanbul SAW", "Türkiye", 40.9, 29.31, false],
+  ["IST", "İstanbul", "Türkiye",   41.26,  28.74,   true,  182, "1,2,D,F,E"],
+  ["FRA", "Frankfurt", "Almanya",  50.03,   8.57,  false,   76, "A,B"],
+  ["LHR", "Londra", "İngiltere",  51.47,  -0.45,  false,   60, "2,3,4,5"],
+  ["JFK", "New York", "ABD",      40.64, -73.78,  false,   65, "1,2,4,5,7,8"],
+  ["CDG", "Paris", "Fransa",      49.00,   2.55,  false,   80, "1,2E,2F,2G,3"],
+  ["AMS", "Amsterdam", "Hollanda",52.31,   4.76,  false,   52, "D,E,F,G,H"],
+  ["DXB", "Dubai", "BAE",         25.25,  55.36,  false,  100, "1,2,3"],
+  ["NRT", "Tokyo", "Japonya",     35.76, 140.39,  false,   42, "1,2"],
+  ["SIN", "Singapur", "Singapur",  1.36, 103.99,  false,   80, "1,2,3"],
+  ["GRU", "São Paulo", "Brezilya",-23.43,-46.47,  false,   60, "1,2,3"],
+  ["MAD", "Madrid", "İspanya",    40.47,  -3.56,  false,   52, "1,2,3,4"],
+  ["SAW", "İstanbul SAW", "Türkiye",40.9, 29.31,  false,   28, "1"],
 ];
 
 const NAMES_F = ["Ahmet", "Mehmet", "Ayşe", "Zeynep", "Ali", "Elif", "Mustafa", "Selin", "Burak", "Deniz", "Can", "Ece", "Emre", "Cem", "Aslı", "Kaan", "Naz", "Onur", "Sema", "Tolga"];
@@ -43,9 +54,9 @@ async function main() {
 
   // Havalimanları
   const airports = {};
-  for (const [iata, city, country, lat, lon, isHub] of AIRPORTS) {
+  for (const [iata, city, country, lat, lon, isHub, gateCount, terminals] of AIRPORTS) {
     airports[iata] = await prisma.airport.create({
-      data: { iata, city, country, lat, lon, isHub, mctMin: isHub ? 60 : 45 },
+      data: { iata, city, country, lat, lon, isHub, mctMin: isHub ? 60 : 45, gateCount, terminals },
     });
   }
 
@@ -98,6 +109,7 @@ async function main() {
           businessCap,
           economyBooked: Math.floor(economyCap * (0.55 + Math.random() * 0.4)),
           businessBooked: Math.floor(businessCap * (0.4 + Math.random() * 0.5)),
+          gate: randomGate(dep),
         },
       })
     );

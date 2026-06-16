@@ -5,6 +5,35 @@
 import { prisma } from "../db.js";
 import { getOptimalAssignment, predictDelays } from "./aiClient.js";
 
+// Haversine mesafesi (km) — EU261 tazminat dilimi için
+export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// EU261/2004 tazminat (EUR/yolcu) — hava olaylarında muafiyet uygulanır
+export function eu261PerPax(distanceKm: number): number {
+  if (distanceKm < 1500) return 250;
+  if (distanceKm < 3500) return 400;
+  return 600;
+}
+
+// Ortalama bilet fiyatı tahmini (USD)
+export function estimatedTicketPrice(distanceKm: number, ticketClass: string): number {
+  let base: number;
+  if (distanceKm < 1500) base = 150;
+  else if (distanceKm < 4000) base = 350;
+  else base = 620;
+  return ticketClass === "BUSINESS" ? Math.round(base * 3.5) : base;
+}
+
 const LOYALTY_W: Record<string, number> = { ELITE_PLUS: 1, ELITE: 0.7, CLASSIC: 0.4, NONE: 0.1 };
 const CLASS_W: Record<string, number> = { BUSINESS: 1, ECONOMY: 0.4 };
 const SPECIAL_W: Record<string, number> = { UM: 1, MEDICAL: 1, VIP: 0.9, WCHR: 0.8, NONE: 0.1 };
@@ -87,12 +116,30 @@ function careFor(addedDelayMin: number, hasOption: boolean, w: CostParams): Care
   return null;
 }
 
+export interface RevenueImpact {
+  distanceKm: number;
+  eligibleForEu261: boolean;
+  compPerPax: number;
+  totalEu261: number;
+  totalCare: number;
+  estimatedRevenueLoss: number;
+  grandTotal: number;
+  currency: string;
+  breakdown: {
+    hotel: number;
+    meal: number;
+    compensation: number;
+    revenueLoss: number;
+  };
+}
+
 export interface RecommendationResult {
   disruptionId: string;
   flightNo: string;
   affectedCount: number;
   alternativeCount: number;
   method: string;
+  revenueImpact: RevenueImpact;
   passengers: Array<{
     passengerId: string;
     pnr: string;
@@ -137,8 +184,28 @@ export async function recommendForDisruption(disruptionId: string): Promise<Reco
       status: { in: ["PLANNED", "DELAYED", "BOARDING"] },
       scheduledDep: { gte: orig.scheduledDep },
     },
+    include: { arrAirport: true, depAirport: true },
     orderBy: { scheduledDep: "asc" },
   });
+
+  // Varış havalimanının MCT (transfer için kritik)
+  const arrMCT = (orig.arrAirport as any).mctMin ?? 60;
+
+  // Hub gate yoğunluğu: kalkış havalimanındaki toplam gate sayısı
+  // ve aynı 2 saatte kaç uçuş var → gate müsaitliğini tahmin et
+  const depAirport = await prisma.airport.findUnique({ where: { id: orig.depAirportId } });
+  const hubGateCount = (depAirport as any)?.gateCount ?? 20;
+  const windowStart = orig.scheduledDep;
+  const windowEnd = new Date(orig.scheduledDep.getTime() + 2 * 3600_000);
+  const concurrentFlights = await prisma.flight.count({
+    where: {
+      depAirportId: orig.depAirportId,
+      status: { in: ["PLANNED", "BOARDING", "DELAYED"] },
+      scheduledDep: { gte: windowStart, lte: windowEnd },
+    },
+  });
+  // Gate kullanım oranı: 1.0 = tüm gate'ler dolu
+  const gateUtilization = Math.min(1, concurrentFlights / Math.max(hubGateCount, 1));
 
   // Orijinal (sınıf bazlı) boş koltuk
   interface CapacityInfo {
@@ -178,11 +245,12 @@ export async function recommendForDisruption(disruptionId: string): Promise<Reco
     });
   }
 
-  // Öncelik skoru
+  // Öncelik skoru + bağlantı uçuş bilgisi (ACT/MCT için)
   const scored = await Promise.all(
     bookings.map(async (b: any) => {
       const connection = await prisma.booking.findFirst({
         where: { pnr: b.pnr, isConnection: true },
+        include: { flight: true },
       });
       const pax = {
         passengerId: b.passengerId,
@@ -192,6 +260,8 @@ export async function recommendForDisruption(disruptionId: string): Promise<Reco
         loyalty: (b.passenger as any).loyalty,
         specialNeed: (b.passenger as any).specialNeed,
         hasConnection: !!connection,
+        connectionDep: connection ? (connection as any).flight?.scheduledDep : null,
+        connectionFlightNo: connection ? (connection as any).flight?.flightNo : null,
         score: 0,
       };
       pax.score = priorityScore(pax as any, w);
@@ -200,29 +270,79 @@ export async function recommendForDisruption(disruptionId: string): Promise<Reco
   );
   scored.sort((a, b) => b.score - a.score);
 
+  // #1 PNR BÜTÜNLÜĞÜ: aynı PNR'deki yolcuları grupla
+  // Grup skoru = grubun en yüksek bireysel skoru (aile/grup yüksek öncelikliyle gelsin)
+  const pnrGroups = new Map<string, typeof scored>();
+  for (const p of scored) {
+    if (!pnrGroups.has(p.pnr)) pnrGroups.set(p.pnr, []);
+    pnrGroups.get(p.pnr)!.push(p);
+  }
+  const groups = Array.from(pnrGroups.entries()).map(([pnr, members]) => ({
+    pnr,
+    members,
+    score: Math.max(...members.map((m) => m.score)),
+    size: members.length,
+    // Grubun sınıf dağılımı (atama için)
+    economyCount: members.filter((m) => m.ticketClass === "ECONOMY").length,
+    businessCount: members.filter((m) => m.ticketClass === "BUSINESS").length,
+    // Bağlantı bilgisi: gruptan herhangi birinin bağlantısı varsa al
+    connectionDep: members.find((m) => m.connectionDep)?.connectionDep || null,
+    connectionFlightNo: members.find((m) => m.connectionFlightNo)?.connectionFlightNo || null,
+  }));
+  groups.sort((a, b) => b.score - a.score);
+
+  // #2 ACT/MCT: Bir alternatif uçuş seçildiğinde bağlantı korunur mu?
+  // Yeni varış zamanı + MCT(hub) ≤ bağlantı kalkışı ise bağlantı kurtulur.
+  function connectionSafe(alt: any, connectionDep: Date | null): boolean {
+    if (!connectionDep) return true;
+    const newArrivalMs = new Date(alt.scheduledArr).getTime();
+    const connectionDepMs = new Date(connectionDep).getTime();
+    return newArrivalMs + arrMCT * 60 * 1000 <= connectionDepMs;
+  }
+  function connectionMissedPenalty(alt: any, connectionDep: Date | null): number {
+    // Bağlantı kaçırılırsa OR-Tools maliyetine ek dakika ekle (ceza)
+    if (!connectionDep) return 0;
+    return connectionSafe(alt, connectionDep) ? 0 : 240; // 4 saat ek ceza
+  }
+
   // AI optimal atama (min-cost flow); kapalıysa null
+  // #1 PNR: Her grup tek birim olarak gönderilir, gerekli kapasite = grup büyüklüğü
+  // Bağlantısı olanlar için connectionMissedPenalty ek maliyet (her alternatif farklı olabilir,
+  // OR-Tools tek "addedDelayMin" beklediği için ortalama bir grup-bağlantı cezası ekleyelim)
   const optimal = await getOptimalAssignment({
-    passengers: scored.map((p) => ({
-      passengerId: p.passengerId,
-      ticketClass: p.ticketClass,
-      priority: p.score,
+    passengers: groups.map((g) => ({
+      passengerId: g.pnr, // PNR'yi yolcu kimliği olarak ver (grup birim)
+      ticketClass: g.businessCount > 0 ? "BUSINESS" : "ECONOMY", // grup ağırlıklı
+      priority: g.score,
     })),
-    alternatives: alts.map((a: any) => ({
-      flightId: a.id,
-      economyAvail: avail[a.id].ECONOMY,
-      businessAvail: avail[a.id].BUSINESS,
-      // risk-ayarlı: tarife gecikmesi + ML'in öngördüğü ikincil gecikme yarısı
-      addedDelayMin:
-        avail[a.id].addedDelayMin + Math.round((avail[a.id].predictedDelayMin || 0) * 0.5),
-    })),
+    alternatives: alts.map((a: any) => {
+      // Grupların ortalama bağlantı kaçırma ihtimali maliyete eklenir
+      const avgConnectionPenalty =
+        groups.reduce((s, g) => s + connectionMissedPenalty(a, g.connectionDep), 0) /
+        Math.max(groups.length, 1);
+      return {
+        flightId: a.id,
+        economyAvail: avail[a.id].ECONOMY,
+        businessAvail: avail[a.id].BUSINESS,
+        // risk-ayarlı: tarife gecikmesi + ML gecikme + bağlantı cezası + gate yoğunluğu cezası
+        // Gate doluluk oranı yüksekse her alternatife ek dakika eklenir
+        addedDelayMin:
+          avail[a.id].addedDelayMin +
+          Math.round((avail[a.id].predictedDelayMin || 0) * 0.5) +
+          Math.round(avgConnectionPenalty) +
+          Math.round(gateUtilization * 20), // max 20 dk gate bekleme cezası
+      };
+    }),
   });
 
   const optimalMap = optimal
     ? Object.fromEntries(
-        optimal.assignments.filter((a: any) => a.toFlightId).map((a: any) => [a.passengerId, a.toFlightId])
+        optimal.assignments
+          .filter((a: any) => a.toFlightId)
+          .map((a: any) => [a.passengerId, a.toFlightId])
       )
     : null;
-  const method = optimalMap ? "optimal (min-cost flow)" : "greedy (heuristik)";
+  const method = optimalMap ? "optimal (PNR-grup + min-cost flow)" : "greedy (PNR-grup)";
 
   // Greedy fallback için değişebilir kapasite
   const greedyCap = JSON.parse(JSON.stringify(avail));
@@ -230,21 +350,35 @@ export async function recommendForDisruption(disruptionId: string): Promise<Reco
   const proposals: any[] = [];
   const result: any[] = [];
 
-  for (const pax of scored) {
-    const classKey = pax.ticketClass;
+  // #1 PNR-grup bazlı atama döngüsü
+  for (const group of groups) {
+    // Grup için uygun alternatif: hem ekonomy hem business kontenjanı yeterli olmalı
     const eligible = alts
-      .filter((a: any) => (avail[a.id] as any)[classKey] > 0)
-      .sort((a: any, b: any) => avail[a.id].addedDelayMin - avail[b.id].addedDelayMin);
+      .filter(
+        (a: any) =>
+          avail[a.id].ECONOMY >= group.economyCount &&
+          avail[a.id].BUSINESS >= group.businessCount
+      )
+      .sort((a: any, b: any) => {
+        // Önce bağlantı koruyanlar, sonra gecikme
+        const sA = connectionSafe(a, group.connectionDep) ? 0 : 1000;
+        const sB = connectionSafe(b, group.connectionDep) ? 0 : 1000;
+        return sA + avail[a.id].addedDelayMin - (sB + avail[b.id].addedDelayMin);
+      });
 
-    // Seçilen uçuş: AI varsa optimal, yoksa açgözlü
     let chosenId: string | null = null;
     if (optimalMap) {
-      chosenId = optimalMap[pax.passengerId] || null;
+      chosenId = optimalMap[group.pnr] || null;
     } else {
-      const g = eligible.find((a: any) => (greedyCap[a.id] as any)[classKey] > 0);
+      const g = eligible.find(
+        (a: any) =>
+          (greedyCap[a.id] as any).ECONOMY >= group.economyCount &&
+          (greedyCap[a.id] as any).BUSINESS >= group.businessCount
+      );
       if (g) {
         chosenId = g.id;
-        (greedyCap[g.id] as any)[classKey] -= 1;
+        (greedyCap[g.id] as any).ECONOMY -= group.economyCount;
+        (greedyCap[g.id] as any).BUSINESS -= group.businessCount;
       }
     }
 
@@ -258,43 +392,60 @@ export async function recommendForDisruption(disruptionId: string): Promise<Reco
     }
     ordered = ordered.slice(0, 3);
 
-    const options = ordered.map((a: any, idx: number) => {
-      const v = avail[a.id];
-      const fit = Math.max(0, 100 - v.addedDelayMin * 0.08);
-      const connNote = pax.hasConnection
-        ? v.addedDelayMin <= 180
-          ? " · bağlantı korunabilir"
-          : " · bağlantı riskli"
-        : "";
-      const riskNote =
-        v.predictedDelayMin >= 45 ? ` · ⚠ tahmini gecikme riski ~${v.predictedDelayMin} dk` : "";
-      return {
-        toFlightId: a.id,
-        toFlightNo: v.flightNo,
-        rank: idx + 1,
-        addedDelayMin: v.addedDelayMin,
-        fitScore: Math.round(fit),
-        rationale: `${v.flightNo} ile +${v.addedDelayMin} dk · ${TR_LOYALTY[pax.loyalty]}, ${
-          TR_CLASS[pax.ticketClass]
-        }${connNote}${riskNote}`,
-      };
-    });
-
-    const best = options[0];
-    const care = careFor(best?.addedDelayMin ?? Infinity, !!best, w);
-    result.push({ ...pax, options, care });
-
-    for (const o of options) {
-      proposals.push({
-        disruptionId,
-        passengerId: pax.passengerId,
-        fromFlightId: orig.id,
-        toFlightId: o.toFlightId,
-        score: pax.score,
-        rank: o.rank,
-        addedDelayMin: o.addedDelayMin,
-        rationale: o.rationale,
+    // Her grup üyesi için aynı seçenekleri üret (PNR bütünlüğü)
+    for (const pax of group.members) {
+      const options = ordered.map((a: any, idx: number) => {
+        const v = avail[a.id];
+        const fit = Math.max(0, 100 - v.addedDelayMin * 0.08);
+        // #2 Bağlantı gerçek hesabı (ACT/MCT)
+        const safe = connectionSafe(a, group.connectionDep);
+        let connNote = "";
+        if (pax.hasConnection) {
+          if (safe) {
+            connNote = ` · bağlantı korunur (${group.connectionFlightNo})`;
+          } else {
+            connNote = ` · ⚠ ${group.connectionFlightNo} bağlantısı kaçırılır`;
+          }
+        }
+        // Grup bütünlüğü notu
+        const groupNote = group.size > 1 ? ` · PNR grubu (${group.size} kişi)` : "";
+        const riskNote =
+          v.predictedDelayMin >= 45
+            ? ` · tahmini gecikme riski ~${v.predictedDelayMin} dk`
+            : "";
+        // Gate notu: alternatif uçuşun gate'i varsa göster
+        const gateNote = (a as any).gate ? ` · Gate ${(a as any).gate}` : "";
+        // Hub yoğunluğu uyarısı
+        const congestionNote =
+          gateUtilization >= 0.8
+            ? ` · ⚠ hub yoğun (%${Math.round(gateUtilization * 100)} gate dolu)`
+            : "";
+        return {
+          toFlightId: a.id,
+          toFlightNo: v.flightNo,
+          rank: idx + 1,
+          addedDelayMin: v.addedDelayMin,
+          fitScore: Math.round(fit),
+          rationale: `${v.flightNo} ile +${v.addedDelayMin} dk · ${TR_LOYALTY[pax.loyalty]}, ${TR_CLASS[pax.ticketClass]}${groupNote}${gateNote}${connNote}${riskNote}${congestionNote}`,
+        };
       });
+
+      const best = options[0];
+      const care = careFor(best?.addedDelayMin ?? Infinity, !!best, w);
+      result.push({ ...pax, options, care });
+
+      for (const o of options) {
+        proposals.push({
+          disruptionId,
+          passengerId: pax.passengerId,
+          fromFlightId: orig.id,
+          toFlightId: o.toFlightId,
+          score: pax.score,
+          rank: o.rank,
+          addedDelayMin: o.addedDelayMin,
+          rationale: o.rationale,
+        });
+      }
     }
   }
 
@@ -313,12 +464,60 @@ export async function recommendForDisruption(disruptionId: string): Promise<Reco
     }));
   if (careRows.length) await prisma.careAction.createMany({ data: careRows });
 
+  // --- Gelir Etkisi (Revenue Impact) ---
+  const depAirportCoords = await prisma.airport.findUnique({
+    where: { id: orig.depAirportId },
+    select: { lat: true, lon: true },
+  });
+  const arrAirportFull = await prisma.airport.findUnique({
+    where: { id: orig.arrAirportId },
+    select: { lat: true, lon: true },
+  });
+  const distKm = depAirportCoords && arrAirportFull
+    ? Math.round(haversineKm(
+        (depAirportCoords as any).lat, (depAirportCoords as any).lon,
+        (arrAirportFull as any).lat, (arrAirportFull as any).lon
+      ))
+    : 0;
+
+  // EU261/2004: hava durumu muafiyet, diğer nedenler tam tazminat
+  const eligibleForEu261 = (disruption as any).type !== "WEATHER";
+  const compPerPax = eu261PerPax(distKm);
+  const totalEu261 = eligibleForEu261 ? compPerPax * scored.length : 0;
+
+  const hotelTotal = careRows.filter((c) => c.type === "HOTEL").reduce((s, c) => s + c.amount, 0);
+  const mealTotal = careRows.filter((c) => c.type === "MEAL").reduce((s, c) => s + c.amount, 0);
+  const totalCare = Math.round(hotelTotal + mealTotal);
+
+  const avgTicket =
+    result.reduce((s: number, r: any) => s + estimatedTicketPrice(distKm, r.ticketClass), 0) /
+    Math.max(result.length, 1);
+  const estimatedRevenueLoss = Math.round(avgTicket * scored.length * 0.15); // 15% = iptal cezası / gelir erimesi
+
+  const revenueImpact: RevenueImpact = {
+    distanceKm: distKm,
+    eligibleForEu261,
+    compPerPax: eligibleForEu261 ? compPerPax : 0,
+    totalEu261: Math.round(totalEu261),
+    totalCare,
+    estimatedRevenueLoss,
+    grandTotal: Math.round(totalEu261 + totalCare + estimatedRevenueLoss),
+    currency: "EUR",
+    breakdown: {
+      hotel: Math.round(hotelTotal),
+      meal: Math.round(mealTotal),
+      compensation: Math.round(totalEu261),
+      revenueLoss: estimatedRevenueLoss,
+    },
+  };
+
   return {
     disruptionId,
     flightNo: orig.flightNo,
     affectedCount: scored.length,
     alternativeCount: alts.length,
     method,
+    revenueImpact,
     passengers: result,
   };
 }

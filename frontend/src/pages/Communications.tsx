@@ -15,10 +15,52 @@ import {
   Headphones,
   Settings as Cog,
 } from "lucide-react";
-import { api } from "../api/client";
-import { useApi } from "../hooks/useApi";
-import { Skeleton, ErrorState } from "../components/Skeleton";
-import type { ChatRole, ChatMessage, Member } from "../types";
+import type { ChatRole, ChatMessage, Member, CommsSeed } from "../types";
+
+// İletişim kanalları UI sabit verisi (gerçek zamanlı mesajlar state'te tutulur)
+const SEED: CommsSeed = {
+  categories: [
+    { name: "OPERASYON", channels: [
+        { id: "genel", name: "genel", type: "text" },
+        { id: "anlik-durum", name: "anlık-durum", type: "text", unread: true },
+        { id: "kriz-masasi", name: "kriz-masası", type: "text", badge: 3 },
+        { id: "duyurular", name: "duyurular", type: "text" },
+    ]},
+    { name: "EKİPLER", channels: [
+        { id: "pilotlar", name: "pilotlar", type: "text" },
+        { id: "kabin", name: "kabin-ekibi", type: "text" },
+        { id: "yer-hizmet", name: "yer-hizmetleri", type: "text" },
+    ]},
+    { name: "SESLİ KANALLAR", channels: [
+        { id: "kule", name: "Kule Hattı", type: "voice", count: 4 },
+        { id: "brifing", name: "Brifing Odası", type: "voice", count: 0 },
+    ]},
+  ],
+  members: [
+    { name: "Op. Merkezi", role: "Komuta", status: "online" },
+    { name: "Mehmet Demir", role: "Pilot", status: "online" },
+    { name: "Selin Arslan", role: "Pilot", status: "online" },
+    { name: "Zeynep Kaya", role: "Kabin", status: "online" },
+    { name: "Ali Yıldız", role: "Yer", status: "idle" },
+    { name: "Burak Şahin", role: "Yer", status: "offline" },
+    { name: "Elif Çetin", role: "Kabin", status: "offline" },
+  ],
+  messagesByChannel: {
+    "anlik-durum": [
+      { user: "Op. Merkezi", role: "Komuta", time: "14:02", text: "TK1985 için Frankfurt aktarması revize ediliyor. Tüm birimler hazır olsun." },
+      { user: "Mehmet Demir", role: "Pilot", time: "14:04", text: "Anlaşıldı, yeni kapı bilgisini bekliyoruz." },
+      { user: "Op. Merkezi", role: "Komuta", time: "14:06", text: "Kapı A22 olarak güncellendi. Yolcular bilgilendirildi ✅" },
+    ],
+    "genel": [
+      { user: "Zeynep Kaya", role: "Kabin", time: "13:40", text: "Günaydın ekip! Bugün yoğun bir gün olacak gibi 🛫" },
+      { user: "Op. Merkezi", role: "Komuta", time: "13:45", text: "Avrupa rotasında fırtına bekleniyor. Detaylar #kriz-masası kanalında." },
+    ],
+    "kriz-masasi": [
+      { user: "Op. Merkezi", role: "Komuta", time: "12:10", text: "⚠️ Londra üzerinde fırtına nedeniyle 50 otel odası ön rezervasyonu yapıldı." },
+      { user: "Ali Yıldız", role: "Yer", time: "12:14", text: "Transfer araçları da ayarlandı, 6 adet hazır." },
+    ],
+  },
+};
 
 const roleColor: Record<ChatRole, string> = {
   Komuta: "#E30A17",
@@ -70,31 +112,14 @@ function MemberRow({ m, dim }: { m: Member; dim?: boolean }) {
 }
 
 export default function Communications() {
-  const { data: seed, loading, error, reload } = useApi(() => api.getCommsSeed());
   const [active, setActive] = useState("anlik-durum");
   const [text, setText] = useState("");
-  // Kullanıcının gönderdiği mesajlar (seed üzerine eklenir)
   const [extra, setExtra] = useState<Record<string, ChatMessage[]>>({});
 
-  if (loading) {
-    return (
-      <div className="flex-1 p-6">
-        <Skeleton className="h-full w-full min-h-[400px]" />
-      </div>
-    );
-  }
-  if (error || !seed) {
-    return (
-      <div className="flex-1 p-6">
-        <ErrorState message="İletişim verisi yüklenemedi" onRetry={reload} />
-      </div>
-    );
-  }
-
-  const { categories, members } = seed;
+  const { categories, members } = SEED;
   const activeName =
     categories.flatMap((c) => c.channels).find((c) => c.id === active)?.name || "genel";
-  const msgs = [...(seed.messagesByChannel[active] || []), ...(extra[active] || [])];
+  const msgs = [...(SEED.messagesByChannel[active] || []), ...(extra[active] || [])];
   const online = members.filter((m) => m.status !== "offline");
   const offline = members.filter((m) => m.status === "offline");
 

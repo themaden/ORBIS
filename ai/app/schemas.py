@@ -143,3 +143,53 @@ class PartialDependenceResponse(BaseModel):
 
     feature: str
     values: list[PartialDependenceItem]
+
+
+# ---- Model versiyonlama + yeniden eğitim ----
+class ModelVersion(BaseModel):
+    version: str
+    trainedAt: str
+    source: str
+    mae: float
+    rmse: float
+    auc: float
+    f1: float
+    nTrain: int
+    nTest: int
+    active: bool
+
+
+class RetrainRequest(BaseModel):
+    maxRows: int = Field(500_000, ge=1000, le=2_000_000)
+    forceRetrain: bool = False
+
+
+class RetrainResponse(BaseModel):
+    version: str
+    trainedAt: str
+    source: str
+    mae: float
+    rmse: float
+    auc: float
+    f1: float
+    nTrain: int
+    nTest: int
+    durationSec: float
+    improvement: dict  # {"mae": delta, "auc": delta}
+
+
+# ---- Tahmin doğruluk kaydı (backend'den POST edilir) ----
+class PredictionFeedback(BaseModel):
+    flightId: str
+    predictedDelayMin: int
+    actualDelayMin: int
+
+
+class AccuracyStats(BaseModel):
+    totalPredictions: int
+    correctWithin15Min: int
+    correctWithin30Min: int
+    accuracy15: float
+    accuracy30: float
+    avgAbsError: float
+    lastUpdated: str

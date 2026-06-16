@@ -46,11 +46,36 @@ ALL_FEATURES = PUBLIC_FEATURES + [
 DELAY_THRESHOLD = 30  # dakika
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-DATA_CANDIDATES = [DATA_DIR / "airline_2008.csv", DATA_DIR / "airline.csv"]
+DATA_CANDIDATES = [
+    DATA_DIR / "flight_data_2024.csv",  # BTS 2024 (yeni format, lowercase)
+    DATA_DIR / "airline_2008.csv",       # BTS 2008 (eski format)
+    DATA_DIR / "airline.csv",            # genel fallback
+]
 MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 MODELS_DIR.mkdir(exist_ok=True)
 MODEL_FILE = MODELS_DIR / "delay_v2.joblib"
+VERSIONS_FILE = MODELS_DIR / "versions.json"
 MAX_ROWS = 500_000
+
+import json
+import time as _time
+
+
+def _load_versions() -> list[dict]:
+    if VERSIONS_FILE.exists():
+        try:
+            return json.loads(VERSIONS_FILE.read_text())
+        except Exception:
+            pass
+    return []
+
+
+def _save_versions(versions: list[dict]) -> None:
+    VERSIONS_FILE.write_text(json.dumps(versions, indent=2, ensure_ascii=False))
+
+
+def get_model_versions() -> list[dict]:
+    return _load_versions()
 
 
 # ---------- Veri yükleme ----------
@@ -76,25 +101,13 @@ def _generate(n: int = 6000, seed: int = 42):
 
 
 def _load_bts(path: Path):
-    """BTS 2008 CSV → 9 özellik + hedef."""
+    """BTS 2008 CSV → 9 özellik + hedef (büyük harf sütun adları)."""
     cols = [
-        "CRSDepTime",
-        "DepDelay",
-        "CRSElapsedTime",
-        "WeatherDelay",
-        "CarrierDelay",
-        "NASDelay",
-        "LateAircraftDelay",
-        "DayOfWeek",
-        "Month",
-        "Cancelled",
+        "CRSDepTime", "DepDelay", "CRSElapsedTime",
+        "WeatherDelay", "CarrierDelay", "NASDelay", "LateAircraftDelay",
+        "DayOfWeek", "Month", "Cancelled",
     ]
-    df = pd.read_csv(
-        path,
-        usecols=lambda c: c in cols,
-        nrows=MAX_ROWS,
-        low_memory=False,
-    )
+    df = pd.read_csv(path, usecols=lambda c: c in cols, nrows=MAX_ROWS, low_memory=False)
     if "Cancelled" in df.columns:
         df = df[df["Cancelled"] != 1]
     df = df.dropna(subset=["CRSDepTime", "DepDelay", "CRSElapsedTime"])
@@ -106,48 +119,69 @@ def _load_bts(path: Path):
     rng = np.random.default_rng(0)
     df["load"] = np.clip(0.65 + rng.normal(0.18, 0.08, len(df)), 0.5, 1.0)
 
-    # Gecikme nedenleri (dk) — NaN → 0
     for col, key in [
-        ("WeatherDelay", "weather_min"),
-        ("CarrierDelay", "carrier_min"),
-        ("NASDelay", "nas_min"),
-        ("LateAircraftDelay", "late_min"),
+        ("WeatherDelay", "weather_min"), ("CarrierDelay", "carrier_min"),
+        ("NASDelay", "nas_min"), ("LateAircraftDelay", "late_min"),
     ]:
         df[key] = pd.to_numeric(df.get(col, 0), errors="coerce").fillna(0).clip(0, 600)
 
-    # weatherSeverity (0-1, public API uyumu için saklanıyor)
     df["weather"] = (df["weather_min"] / 90).clip(0, 1)
-
     df["dow"] = pd.to_numeric(df.get("DayOfWeek", 0), errors="coerce").fillna(0).clip(0, 7)
     df["mo"] = pd.to_numeric(df.get("Month", 0), errors="coerce").fillna(0).clip(0, 12)
-
     df = df.dropna(subset=["hour", "haul", "load", "weather"])
     df["DepDelay"] = df["DepDelay"].clip(lower=0, upper=600)
 
-    X = df[
-        [
-            "hour",
-            "load",
-            "haul",
-            "weather",
-            "carrier_min",
-            "nas_min",
-            "late_min",
-            "dow",
-            "mo",
-        ]
-    ].to_numpy(dtype=float)
+    X = df[["hour", "load", "haul", "weather", "carrier_min", "nas_min", "late_min", "dow", "mo"]].to_numpy(dtype=float)
     y = df["DepDelay"].to_numpy(dtype=float)
     return X, y, f"BTS 2008 (Kaggle) · {len(X):,} kayıt"
+
+
+def _load_bts_2024(path: Path):
+    """BTS 2024 CSV → 9 özellik + hedef (küçük harf/alt çizgi sütun adları)."""
+    cols = [
+        "crs_dep_time", "dep_delay", "crs_elapsed_time",
+        "weather_delay", "carrier_delay", "nas_delay", "late_aircraft_delay",
+        "day_of_week", "month", "cancelled",
+    ]
+    df = pd.read_csv(path, usecols=lambda c: c in cols, nrows=MAX_ROWS, low_memory=False)
+    if "cancelled" in df.columns:
+        df = df[df["cancelled"] != 1]
+    df = df.dropna(subset=["crs_dep_time", "dep_delay", "crs_elapsed_time"])
+    df["dep_delay"] = pd.to_numeric(df["dep_delay"], errors="coerce")
+    df = df.dropna(subset=["dep_delay"])
+
+    df["hour"] = (pd.to_numeric(df["crs_dep_time"], errors="coerce") // 100).clip(0, 23)
+    df["haul"] = (pd.to_numeric(df["crs_elapsed_time"], errors="coerce") / 60).clip(0.5, 18)
+    rng = np.random.default_rng(0)
+    df["load"] = np.clip(0.65 + rng.normal(0.18, 0.08, len(df)), 0.5, 1.0)
+
+    for col, key in [
+        ("weather_delay", "weather_min"), ("carrier_delay", "carrier_min"),
+        ("nas_delay", "nas_min"), ("late_aircraft_delay", "late_min"),
+    ]:
+        df[key] = pd.to_numeric(df.get(col, 0), errors="coerce").fillna(0).clip(0, 600)
+
+    df["weather"] = (df["weather_min"] / 90).clip(0, 1)
+    df["dow"] = pd.to_numeric(df.get("day_of_week", 0), errors="coerce").fillna(0).clip(0, 7)
+    df["mo"] = pd.to_numeric(df.get("month", 0), errors="coerce").fillna(0).clip(0, 12)
+    df = df.dropna(subset=["hour", "haul", "load", "weather"])
+    df["dep_delay"] = df["dep_delay"].clip(lower=0, upper=600)
+
+    X = df[["hour", "load", "haul", "weather", "carrier_min", "nas_min", "late_min", "dow", "mo"]].to_numpy(dtype=float)
+    y = df["dep_delay"].to_numpy(dtype=float)
+    return X, y, f"BTS 2024 (Kaggle) · {len(X):,} kayıt"
 
 
 def _load_data():
     for p in DATA_CANDIDATES:
         if p.exists():
             try:
+                # 2024 formatını dosya adından tespit et
+                if "2024" in p.name or "_2024" in p.stem:
+                    return _load_bts_2024(p)
                 return _load_bts(p)
             except Exception as e:
-                print(f"[ml] {p.name} okunamadı: {e} — sentetiğe düşülüyor")
+                print(f"[ml] {p.name} okunamadı: {e} — sonraki adaya geçiliyor")
     return _generate()
 
 
@@ -171,6 +205,8 @@ class DelayModel:
                 self.n_train = state["n_train"]
                 self.n_test = state["n_test"]
                 self.source = state["source"] + " · cached"
+                self.version = state.get("version", "v1")
+                self.trained_at = state.get("trained_at", "unknown")
                 print(
                     f"[ml] Disk: {self.source}  ·  MAE={self.mae} dk  ·  AUC={self.auc}"
                 )
@@ -233,28 +269,48 @@ class DelayModel:
         self.n_train = int(len(X_tr))
         self.n_test = int(len(X_te))
 
+        self.version = f"v{int(_time.time())}"
+        self.trained_at = _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime())
+
         # Diske kaydet
         try:
-            dump(
-                {
-                    "reg": self.reg,
-                    "clf": self.clf,
-                    "mae": self.mae,
-                    "rmse": self.rmse,
-                    "auc": self.auc,
-                    "precision": self.precision,
-                    "recall": self.recall,
-                    "f1": self.f1,
-                    "cm": self.cm,
-                    "importances": self.importances,
-                    "n_train": self.n_train,
-                    "n_test": self.n_test,
-                    "source": self.source,
-                },
-                MODEL_FILE,
-                compress=3,
-            )
-            print(f"[ml] Model diske kaydedildi: {MODEL_FILE.name}")
+            state = {
+                "reg": self.reg,
+                "clf": self.clf,
+                "mae": self.mae,
+                "rmse": self.rmse,
+                "auc": self.auc,
+                "precision": self.precision,
+                "recall": self.recall,
+                "f1": self.f1,
+                "cm": self.cm,
+                "importances": self.importances,
+                "n_train": self.n_train,
+                "n_test": self.n_test,
+                "source": self.source,
+                "version": self.version,
+                "trained_at": self.trained_at,
+            }
+            dump(state, MODEL_FILE, compress=3)
+            # Versiyon geçmişi güncelle
+            versions = _load_versions()
+            versions.append({
+                "version": self.version,
+                "trainedAt": self.trained_at,
+                "source": self.source,
+                "mae": self.mae,
+                "rmse": self.rmse,
+                "auc": self.auc,
+                "f1": self.f1,
+                "nTrain": self.n_train,
+                "nTest": self.n_test,
+                "active": True,
+            })
+            # Sadece son 1'i aktif işaretle
+            for v in versions[:-1]:
+                v["active"] = False
+            _save_versions(versions)
+            print(f"[ml] Model diske kaydedildi: {MODEL_FILE.name} ({self.version})")
         except Exception as e:
             print(f"[ml] Disk kaydı başarısız: {e}")
 

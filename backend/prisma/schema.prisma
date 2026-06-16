@@ -43,6 +43,7 @@ enum DisruptionType {
   TECHNICAL // teknik arıza
   CREW // ekip
   AIRPORT // havalimanı/slot
+  AI_PREDICTION // proaktif AI erken uyarı
 }
 
 enum ProposalStatus {
@@ -83,6 +84,8 @@ model Airport {
   lon       Float
   isHub     Boolean @default(false)
   mctMin    Int     @default(45) // minimum bağlantı süresi (dk)
+  gateCount Int     @default(20) // toplam gate sayısı
+  terminals String? // örn: "1,2,D,F" — terminaller
 
   departures Flight[] @relation("DepAirport")
   arrivals   Flight[] @relation("ArrAirport")
@@ -116,11 +119,13 @@ model Flight {
   businessCap   Int          @default(20)
   economyBooked Int          @default(0)
   businessBooked Int         @default(0)
+  gate          String?      // atanan gate (örn: "A22", "D7")
 
   bookings          Booking[]
   disruptions       Disruption[]
   proposalsFrom     RebookingProposal[] @relation("FromFlight")
   proposalsTo       RebookingProposal[] @relation("ToFlight")
+  predictionLogs    PredictionLog[]
 
   @@index([status])
   @@index([scheduledDep])
@@ -233,4 +238,22 @@ model User {
   role     UserRole @default(IOCC)
   passwordHash String
   createdAt DateTime @default(now())
+}
+
+// AI tahmin doğruluk takibi — proaktif motordaki her tahmini kaydeder
+model PredictionLog {
+  id                String   @id @default(cuid())
+  flightId          String
+  flight            Flight   @relation(fields: [flightId], references: [id])
+  predictedDelayMin Int
+  delayProbability  Float
+  band              String
+  actualDelayMin    Int?     // uçuş gerçekleşince doldurulur
+  absError          Int?     // |tahmin - gerçek|
+  correct30         Boolean? // ±30 dakika doğruluk
+  modelVersion      String   @default("v1")
+  createdAt         DateTime @default(now())
+
+  @@index([flightId])
+  @@index([createdAt])
 }

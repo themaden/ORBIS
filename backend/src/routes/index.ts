@@ -6,6 +6,8 @@ import { kpiRouter } from "./kpi.js";
 import { modelRouter } from "./model.js";
 import { riskRouter } from "./risk.js";
 import { resourcesRouter } from "./resources.js";
+import { analyticsRouter } from "./analytics.js";
+import { settingsRouter } from "./settings.js";
 
 export const router = Router();
 
@@ -16,3 +18,5 @@ router.use("/kpi", kpiRouter);
 router.use("/model", modelRouter);
 router.use("/risk", riskRouter);
 router.use("/resources", resourcesRouter);
+router.use("/analytics", analyticsRouter);
+router.use("/settings", settingsRouter);
