@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { recommendForDisruption } from "../services/recommend.js";
 import { generateBriefing } from "../services/briefing.js";
@@ -29,7 +29,7 @@ disruptionsRouter.get("/", async (_req, res) => {
 });
 
 // POST /api/disruptions  { flightId, type, reason }  — yeni IRROPS olayı (uçuşu iptal işaretler)
-disruptionsRouter.post("/", requireAuth, validate(CreateBody), async (req, res) => {
+disruptionsRouter.post("/", requireAuth, requireRole("IOCC", "HUB_CONTROL"), validate(CreateBody), async (req, res) => {
   const { flightId, type = "WEATHER", reason = "Operasyonel aksaklık" } = req.body;
   const flight = await prisma.flight.findUnique({ where: { id: flightId } });
   if (!flight) return res.status(404).json({ error: "Uçuş bulunamadı" });

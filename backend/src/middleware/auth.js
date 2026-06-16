@@ -22,3 +22,18 @@ export function requireAuth(req, res, next) {
     res.status(401).json({ error: "Geçersiz oturum" });
   }
 }
+
+// Rol bazlı erişim: requireRole("IOCC", "ADMIN")
+export function requireRole(...allowed) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: "Yetkisiz" });
+    if (!allowed.includes(req.user.role) && req.user.role !== "ADMIN") {
+      return res.status(403).json({
+        error: "Bu işlem için yetkiniz yok",
+        required: allowed,
+        yourRole: req.user.role,
+      });
+    }
+    next();
+  };
+}

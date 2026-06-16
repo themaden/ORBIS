@@ -33,10 +33,17 @@ class DelayRequest(BaseModel):
     weatherSeverity: float = Field(0.3, ge=0, le=1)
 
 
+class ExplainFactor(BaseModel):
+    feature: str
+    contribution: float  # -1..1, tahmine göreli katkı
+    input: float  # normalize edilmiş girdi (0..1)
+
+
 class DelayResponse(BaseModel):
     delayProbability: float  # 0-1
     expectedDelayMin: int
     band: str  # Düşük / Orta / Yüksek
+    explain: list[ExplainFactor] | None = None
 
 
 class DelayBatchRequest(BaseModel):

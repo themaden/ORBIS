@@ -268,5 +268,35 @@ class DelayModel:
         prob = float(self.clf.predict_proba(x)[0][1])
         return prob, minutes
 
+    def explain(self, hour: int, load: float, haul: float, weather: float):
+        """SHAP yerine ağaç tabanlı yerel öz katkılar.
+
+        Her ağacın her özellik için tahmine katkısı: (yaprak değeri − kök ortalaması)
+        ortalamasını basit bir yaklaşımla, **feature_importances × normalize(input)**
+        ile yaklaştırıyoruz. Tam SHAP değil ama "neden bu tahmin?" sorusuna
+        açıklanabilir bir cevap verir.
+        """
+        # Normalize edilmiş girdiler (0-1 ölçeği)
+        normalized = {
+            "departureHour": hour / 24,
+            "loadFactor": load,
+            "routeHaulHours": min(haul / 14, 1),
+            "weatherSeverity": weather,
+        }
+        # importance × normalized değer = göreli yerel katkı
+        contribs = []
+        for name in ["departureHour", "loadFactor", "routeHaulHours", "weatherSeverity"]:
+            imp = self.importances.get(name, 0)
+            val = normalized.get(name, 0)
+            contribs.append((name, imp * val))
+        total = sum(abs(c) for _, c in contribs) or 1
+        return sorted(
+            [
+                {"feature": n, "contribution": round(c / total, 3), "input": round(normalized[n], 3)}
+                for n, c in contribs
+            ],
+            key=lambda x: -abs(x["contribution"]),
+        )
+
 
 MODEL = DelayModel()

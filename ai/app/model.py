@@ -85,6 +85,20 @@ def predict_delay(r: DelayRequest) -> DelayResponse:
         expected = round(prob * (30 + r.weatherSeverity * 150 + r.routeHaulHours * 4))
 
     band = "Yüksek" if prob >= 0.6 else "Orta" if prob >= 0.35 else "Düşük"
+
+    explain = None
+    try:
+        from .ml import MODEL
+
+        explain = MODEL.explain(
+            r.departureHour, r.loadFactor, r.routeHaulHours, r.weatherSeverity
+        )
+    except Exception:
+        pass
+
     return DelayResponse(
-        delayProbability=round(prob, 3), expectedDelayMin=expected, band=band
+        delayProbability=round(prob, 3),
+        expectedDelayMin=expected,
+        band=band,
+        explain=explain,
     )
