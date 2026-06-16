@@ -314,7 +314,7 @@ backend/
 
 ## 🧠 AI Servisi <a name="ai"></a>
 
-**Stack:** Python 3.14 · FastAPI · Pydantic 2 · Uvicorn · **scikit-learn 1.9** (RandomForest) · **OR-Tools 9** (min-cost flow) · NumPy 2
+**Stack:** Python 3.11+ · FastAPI · Pydantic 2 · Uvicorn · **scikit-learn** (RandomForest) · **OR-Tools** (min-cost flow) · NumPy
 
 ### Yapı
 
@@ -368,14 +368,16 @@ faktörün katkısını gösterebiliriz. Black-box değil.
 - Regresyon: dakika cinsinden gecikme tahmini
 - Sınıflandırma: "önemli gecikme (>30dk)" olasılığı
 
-**Dürüst holdout metrikleri** (`/model/info` ucundan görünür):
-- **MAE:** 17.4 dk
-- **RMSE:** 22.8 dk
-- **AUC:** 0.935
-- **Feature importance:** hava 0.78 (baskın), doluluk 0.10, saat 0.06, menzil 0.06
+**Holdout metrikleri** (`/model/info` ucundan görünür):
+- **MAE:** 5.3 dk *(BTS 2024, 479K kayıt)*
+- **RMSE:** 14.7 dk
+- **AUC:** 0.985
+- **F1:** 0.893
+- **Eğitim verisi:** 479,772 BTS 2024 kaydı
+- **Feature importance:** taşıyıcı gecikmesi, hava, doluluk, saat, menzil, NAS gecikmesi
 
-⚠ **Sentetik veri uyarısı:** Demo amaçlı, gerçek THY verisiyle değiştirilebilir
-(arayüz aynı kalır). Yol haritasında Kaggle BTS veri seti hedeflendi.
+> BTS 2024 (US Bureau of Transportation Statistics) gerçek uçuş verisiyle eğitilmiştir.
+> `ai/data/flight_data_2024.csv` yerine farklı CSV eklenip AIAnalytics'ten "Yeniden Eğit" tıklanabilir.
 
 #### 3. Optimal Atama (`/assign`) — OR-Tools
 
@@ -396,7 +398,7 @@ maliyeti minimize eder.
   "service": "orbis-ai",
   "risk": "weighted-logistic",
   "assign": "min-cost-flow",
-  "delayModel": "random-forest (MAE=17.4 dk, AUC=0.935)"
+  "delayModel": "random-forest (MAE=5.3 dk, AUC=0.985)"
 }
 ```
 
@@ -591,9 +593,20 @@ uvicorn app.main:app --port 8000   # → http://localhost:8000/docs
 | POST | `/api/disruptions/:id/recommend` 🔒 | Öneri üret |
 | POST | `/api/disruptions/:id/apply` 🔒 | Öneriyi uygula |
 | GET | `/api/disruptions/:id/proposals` | Kayıtlı öneriler |
+| GET | `/api/disruptions/:id/notifications` 🔒 | Yolcu bildirimleri (SMS + e-posta) |
+| GET | `/api/disruptions/:id/scenarios` 🔒 | Senaryo karşılaştırması |
 | GET | `/api/kpi/summary` | Risk + istatistik |
 | GET | `/api/model/info` | ML metrikleri (AI proxy) |
 | GET | `/api/risk/flights` | Proaktif ML risk |
+| GET | `/api/settings/params` 🔒 | Maliyet parametreleri |
+| PUT | `/api/settings/params` 🔒 | Parametre güncelle |
+| GET | `/api/settings/model/versions` 🔒 | Model versiyon geçmişi |
+| GET | `/api/settings/model/accuracy` 🔒 | Üretim tahmin doğruluğu |
+| POST | `/api/settings/model/retrain` 🔒 | Yeniden eğitim başlat |
+| GET | `/api/settings/model/retrain/status` 🔒 | Eğitim durumu |
+| GET | `/api/settings/gdpr/summary` 🔒 | Kişisel veri özeti |
+| POST | `/api/settings/gdpr/anonymize/:id` 🔒 | Yolcu anonimleştir |
+| POST | `/api/settings/gdpr/anonymize-batch` 🔒 | Toplu anonimleştirme |
 
 🔒 = JWT gerekir
 
@@ -609,17 +622,23 @@ uvicorn app.main:app --port 8000   # → http://localhost:8000/docs
 |-------|-----|----------|
 | GET | `/health` | Sağlık + model bilgisi |
 | GET | `/model/info` | Holdout metrikleri + feature importance |
+| GET | `/model/versions` | Versiyon geçmişi (versions.json) |
+| GET | `/model/accuracy` | Üretim doğruluk istatistikleri |
+| POST | `/model/retrain` | Yeniden eğitim (arka planda) |
+| GET | `/model/retrain/status` | Eğitim durumu |
+| POST | `/model/feedback` | Gerçek gecikme geri bildirimi |
 | POST | `/risk/score` | IRROPS risk endeksi |
 | POST | `/predict/delay` | Tek uçuş gecikme tahmini |
 | POST | `/predict/delay/batch` | Toplu tahmin |
 | POST | `/assign` | OR-Tools optimal atama |
+| POST | `/explain/delay` | Tahmin açıklaması |
 | GET | `/docs` | Otomatik OpenAPI |
 
 ---
 
 ## 🗺️ Yol haritası <a name="yol"></a>
 
-### ✅ Tamamlanan
+### ✅ Tamamlanan — Kısa Vadeli
 - [x] Frontend (TypeScript, Router, Tema, IRROPS, küre, gauge, toast, lazy, test+CI)
 - [x] Backend Express + Prisma + PostgreSQL (auth, IRROPS CRUD, KPI)
 - [x] IRROPS öneri motoru (kural bazlı skor + kapasite-duyarlı atama + care)
@@ -627,21 +646,28 @@ uvicorn app.main:app --port 8000   # → http://localhost:8000/docs
 - [x] OR-Tools optimal atama (min-cost flow)
 - [x] scikit-learn RandomForest gecikme tahmini + holdout metrik
 - [x] ML kararı etkiliyor (atama maliyetine bağlandı)
-- [x] Proaktif risk uyarısı (henüz aksamamış uçuşlar)
+- [x] Proaktif risk uyarısı (henüz aksamamış uçuşlar, WebSocket ai_alert)
 - [x] LLM operatör brifingi (Anthropic + fallback)
-- [x] WebSocket canlı KPI + disruption + apply push
-- [x] Frontend canlı uçuş tablosu (ML risk renklendirme)
-- [x] Otomatik yenileme (WS olaylarıyla)
+- [x] WebSocket canlı KPI + disruption + apply + ai_alert push
+- [x] Open-Meteo gerçek hava verisi (15dk TTL cache)
+- [x] Gate alanı: hub congestion cezası, gate yoğunluğu notu
+- [x] Backend TypeScript'e geçiş + Zod validation + RBAC
+- [x] Bulut deploy hazırlığı (Vercel + Railway + Dockerfile'lar)
+
+### ✅ Tamamlanan — Orta Vadeli (Gerçekçi Ürün)
+- [x] **Gelir etkisi analizi** — EU261/2004 tazminat (Haversine mesafe, WEATHER muafiyet), bakım + gelir erimesi
+- [x] **Yolcu bildirimleri** — SMS (160 karakter) + e-posta önizleme, "Tümünü Gönder"
+- [x] **Senaryo karşılaştırması** — 2h / 4h / İptal maliyet + EU261 + rebooking yükü
+
+### ✅ Tamamlanan — Uzun Vadeli (Gerçek Ürün)
+- [x] **Model versiyonlama** — her eğitim `ai/models/versions.json`'a otomatik kayıt
+- [x] **Yeniden eğitim pipeline** — `POST /model/retrain` FastAPI arka plan görevi, frontend durum takibi
+- [x] **BTS 2024 verisiyle ML** — 479K kayıt, MAE 5.3dk, AUC 0.985 (önceki: MAE 6.8dk, AUC 0.979)
+- [x] **PredictionLog** — Prisma tablosu, üretim tahmin doğruluk takibi (±30dk)
+- [x] **Maliyet parametreleri admin UI** — slider'lı gerçek zamanlı düzenleme, DB-driven
+- [x] **GDPR / KVKK** — bireysel + toplu yolcu anonimleştirme, audit log
 
 ### ⏳ Opsiyonel (bilinçli ertelenen)
-- [ ] **Gerçek veri seti** (Kaggle BTS / OpenSky) — sentetik yerine
-- [ ] **Hava durumu API** entegrasyonu (`WEATHER_API_KEY`) — risk skorunu beslesin
-- [x] **Backend TypeScript'e geçiş** + Zod validation + RBAC ✅
-- [x] **OpenAPI/Swagger** backend dokümanı ✅
-- [x] **Backend testleri** (Vitest + supertest) ✅
-- [x] **Bulut deploy hazırlığı** (Vercel + Railway + Dockerfile'lar) ✅
-- [x] **Gerçek BTS verisiyle ML eğitimi** (500K satır, MAE 6.8dk, AUC 0.979) ✅
-- [x] **OpenWeatherMap entegrasyonu** ✅
 - [ ] **i18n** (TR/EN) — Ayarlar'daki "Dil" seçimini etkinleştir
 - [ ] **Gerçek production deploy** (Vercel + Railway hesapları gerekir)
 
