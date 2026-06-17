@@ -324,17 +324,30 @@ export default function AIAnalytics() {
           )}
         </Card>
 
-        {/* AI Önerileri */}
-        <Card title="Yapay Zeka Önerileri (Canlı)" className="lg:col-span-3">
-          <ul className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            {data.suggestions.map((t, i) => (
-              <li key={i} className="bg-white/5 rounded-xl p-4 border border-white/10 leading-relaxed text-white/85">
-                <Sparkles size={16} className="text-thy mb-2" />
-                {t}
-              </li>
-            ))}
-          </ul>
-        </Card>
+        {/* Risk Özeti */}
+        {data.hourlyRisk && data.hourlyRisk.length > 0 && (() => {
+          const peak = [...data.hourlyRisk].sort((a, b) => b.risk - a.risk)[0];
+          const low  = [...data.hourlyRisk].sort((a, b) => a.risk - b.risk)[0];
+          const high = data.hourlyRisk.filter(r => r.risk >= 60).length;
+          return (
+            <Card title="Yapay Zeka Risk Özeti (BTS 2024 Gerçek Analiz)" className="lg:col-span-3">
+              <ul className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <li className="bg-white/5 rounded-xl p-4 border border-white/10 leading-relaxed text-white/85">
+                  <Sparkles size={16} className="text-thy mb-2" />
+                  En riskli kalkış saati <strong>{peak.saat}</strong> — ortalama %{peak.risk} gecikme olasılığı, ~{peak.gecikme} dk beklenen gecikme.
+                </li>
+                <li className="bg-white/5 rounded-xl p-4 border border-white/10 leading-relaxed text-white/85">
+                  <Sparkles size={16} className="text-thy mb-2" />
+                  En güvenli pencere <strong>{low.saat}</strong> — %{low.risk} risk seviyesi. Hassas yolcular ve bağlantılı uçuşlar bu saate yönlendirilmeli.
+                </li>
+                <li className="bg-white/5 rounded-xl p-4 border border-white/10 leading-relaxed text-white/85">
+                  <Sparkles size={16} className="text-thy mb-2" />
+                  Toplam <strong>{data.hourlyRisk.length}</strong> saatlik dilimden <strong>{high}</strong> tanesi yüksek risk (%≥60). Proaktif mürettebat planlaması önerilir.
+                </li>
+              </ul>
+            </Card>
+          );
+        })()}
       </div>
     </div>
   );
