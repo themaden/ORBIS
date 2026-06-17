@@ -14,17 +14,27 @@ resourcesRouter.get("/fleet", async (_req, res) => {
   const data = flights.map((f) => {
     const total = (f.economyCap + f.businessCap) || 1;
     const booked = f.economyBooked + f.businessBooked;
-    const progress =
-      f.status === "DEPARTED" || f.status === "ARRIVED"
-        ? 100
-        : Math.round((booked / total) * 100);
+    const loadPct = Math.round((booked / total) * 100);
+    const progress = f.status === "DEPARTED" || f.status === "ARRIVED" ? 100 : loadPct;
+    const statusLabel =
+      f.status === "CANCELLED" ? "Bakımda" :
+      f.status === "DELAYED"   ? "Gecikmeli" :
+      f.status === "BOARDING"  ? "Boarding" :
+      f.status === "DEPARTED"  ? "Uçuşta" :
+      f.status === "ARRIVED"   ? "İndi" : "Kapıda";
     return {
       code: f.aircraft?.tail ?? f.flightNo,
+      flightNo: f.flightNo,
       model: f.aircraft?.model ?? "—",
-      status:
-        f.status === "PLANNED" ? "Kapıda" : f.status === "CANCELLED" ? "Bakımda" : "Uçuşta",
+      status: statusLabel,
       route: `${f.depAirport.iata} → ${f.arrAirport.iata}`,
+      scheduledDep: f.scheduledDep,
       progress,
+      loadPct,
+      economyCap: f.economyCap,
+      businessCap: f.businessCap,
+      economyBooked: f.economyBooked,
+      businessBooked: f.businessBooked,
     };
   });
   res.json(data);

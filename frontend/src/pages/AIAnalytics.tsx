@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
-  Tooltip, CartesianGrid,
+  Tooltip, CartesianGrid, Cell,
 } from "recharts";
 
 const ICONS: Record<string, LucideIcon> = { TrendingUp, AlertTriangle, Sparkles, Cpu };
@@ -106,27 +106,54 @@ export default function AIAnalytics() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Bar grafik */}
-        <Card title="Aylık Uçuş Doluluk Oranı (DB canlı)" className="lg:col-span-2">
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={data.bars.map((v, i) => ({ ay: data.months[i], oran: v }))}
-                margin={{ top: 8, right: 8, bottom: 0, left: -20 }}
-              >
-                <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
-                <XAxis dataKey="ay" tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  cursor={{ fill: "rgba(255,255,255,0.05)" }}
-                  contentStyle={{ background: "#14080a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }}
-                  labelStyle={{ color: "#fff" }}
-                  formatter={(v) => [`%${v}`, "Doluluk"]}
-                />
-                <Bar dataKey="oran" fill="#E30A17" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+        {/* Saatlik Risk Grafiği */}
+        <Card title="Saatlik Gecikme Riski Dağılımı (BTS 2024 Gerçek Veri)" className="lg:col-span-2">
+          {(!data.hourlyRisk || data.hourlyRisk.length === 0) ? (
+            <div className="h-56 flex items-center justify-center text-white/40 text-sm">
+              Saatlik veri yok — seed:bts çalıştırıldı mı?
+            </div>
+          ) : (
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={data.hourlyRisk}
+                  margin={{ top: 8, right: 8, bottom: 0, left: -20 }}
+                >
+                  <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+                  <XAxis dataKey="saat" tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 100]} tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    cursor={{ fill: "rgba(255,255,255,0.05)" }}
+                    contentStyle={{ background: "#14080a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }}
+                    labelStyle={{ color: "#fff" }}
+                    formatter={(v, name) =>
+                      name === "risk" ? [`%${v}`, "Risk Skoru"] :
+                      name === "gecikme" ? [`${v} dk`, "Ort. Gecikme"] :
+                      [`${v}`, "Uçuş Sayısı"]
+                    }
+                  />
+                  <Bar dataKey="risk" radius={[6, 6, 0, 0]}>
+                    {data.hourlyRisk.map((row: any, i: number) => (
+                      <Cell
+                        key={i}
+                        fill={row.risk >= 70 ? "#E30A17" : row.risk >= 50 ? "#f97316" : "#22c55e"}
+                        fillOpacity={0.85}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          {data.delayTypes && data.delayTypes.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">
+              {data.delayTypes.map((d: any) => (
+                <span key={d.tip} className="text-xs px-2.5 py-1 rounded-full bg-white/8 text-white/70">
+                  {d.tip}: <span className="font-semibold text-white">{d.sayi}</span>
+                </span>
+              ))}
+            </div>
+          )}
         </Card>
 
         {/* Aktif modeller */}

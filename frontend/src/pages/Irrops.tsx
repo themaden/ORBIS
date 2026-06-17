@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { getSocket } from "../api/socket";
 import {
   AlertTriangle, Plane, Sparkles, Hotel, Utensils, RotateCcw,
@@ -382,14 +382,26 @@ export default function Irrops() {
   const { data: disruptions, loading, error, reload } = useApi(() => getDisruptions());
   const risk = useApi(() => getFlightRisk());
 
+  const reloadRef = useRef(reload);
+  const riskReloadRef = useRef(risk.reload);
+  reloadRef.current = reload;
+  riskReloadRef.current = risk.reload;
+
   useEffect(() => {
     const s = getSocket();
-    const onDisruption = () => { reload(); risk.reload(); };
-    const onApply = () => risk.reload();
+    const onDisruption = () => { reloadRef.current(); riskReloadRef.current(); };
+    const onApply = () => riskReloadRef.current();
+    const onRisk = () => riskReloadRef.current();
     s.on("disruption", onDisruption);
     s.on("apply", onApply);
-    return () => { s.off("disruption", onDisruption); s.off("apply", onApply); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    s.on("risk_update", onRisk);
+    const timer = setInterval(() => { reloadRef.current(); riskReloadRef.current(); }, 30_000);
+    return () => {
+      s.off("disruption", onDisruption);
+      s.off("apply", onApply);
+      s.off("risk_update", onRisk);
+      clearInterval(timer);
+    };
   }, []);
 
   const [chosen, setChosen] = useState<string | null>(null);

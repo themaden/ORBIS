@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Card } from "../components/Card";
 import { Skeleton, ErrorState } from "../components/Skeleton";
 import { useApi } from "../hooks/useApi";
@@ -110,6 +110,14 @@ export default function Explainability() {
       setLoading(false);
     }
   }, [form]);
+
+  // Sayfa açılışında en yüksek riskli senaryoyu otomatik yükle
+  const autoRan = useRef(false);
+  useEffect(() => {
+    if (autoRan.current) return;
+    autoRan.current = true;
+    handleExplain();
+  }, [handleExplain]);
 
   // Partial Dependence çağrısı
   const handlePD = useCallback(async (feature: PDFeature) => {

@@ -1,19 +1,49 @@
+import { useEffect, useRef } from "react";
 import { Card, Stat } from "../components/Card";
 import { Skeleton, ErrorState } from "../components/Skeleton";
 import { useApi } from "../hooks/useApi";
 import { Plane, Users, Hotel, Wrench, type LucideIcon } from "lucide-react";
 import { getResourceFleet, getResourceStats, getResourceUsage } from "../api/irrops";
+import { getSocket } from "../api/socket";
 
 const ICONS: Record<string, LucideIcon> = { Plane, Users, Hotel, Wrench };
 
-const colorFor = (s: string) =>
-  s === "Uçuşta" ? "text-emerald-400" :
-  s === "Bakımda" ? "text-orange-400" : "text-cyan-400";
+const statusColor = (s: string) =>
+  s === "Uçuşta"   ? "text-emerald-400" :
+  s === "Bakımda"  ? "text-orange-400"  :
+  s === "Gecikmeli"? "text-thy"         :
+  s === "Boarding" ? "text-cyan-400"    :
+  s === "İndi"     ? "text-white/50"    : "text-white/70";
+
+const loadColor = (pct: number) =>
+  pct >= 90 ? "bg-thy" : pct >= 70 ? "bg-orange-500" : "bg-emerald-500";
 
 export default function Resources() {
   const stats = useApi(() => getResourceStats());
   const fleet = useApi(() => getResourceFleet());
   const usage = useApi(() => getResourceUsage());
+
+  const statsRef = useRef(stats.reload);
+  const fleetRef = useRef(fleet.reload);
+  const usageRef = useRef(usage.reload);
+  statsRef.current = stats.reload;
+  fleetRef.current = fleet.reload;
+  usageRef.current = usage.reload;
+
+  useEffect(() => {
+    const s = getSocket();
+    const refresh = () => { statsRef.current(); fleetRef.current(); usageRef.current(); };
+    s.on("disruption", refresh);
+    s.on("apply", refresh);
+    s.on("risk_update", refresh);
+    const timer = setInterval(refresh, 30_000);
+    return () => {
+      s.off("disruption", refresh);
+      s.off("apply", refresh);
+      s.off("risk_update", refresh);
+      clearInterval(timer);
+    };
+  }, []);
 
   return (
     <div className="flex-1 p-6 overflow-y-auto">
@@ -38,33 +68,44 @@ export default function Resources() {
           ) : fleet.error ? (
             <ErrorState onRetry={fleet.reload} />
           ) : (
-            <table className="w-full text-sm min-w-[480px]">
+            <table className="w-full text-sm min-w-[600px]">
               <thead className="text-white/50 text-left text-xs uppercase">
                 <tr>
-                  <th className="py-2">Kuyruk No</th>
+                  <th className="py-2">Sefer No</th>
                   <th>Model</th>
                   <th>Durum</th>
                   <th>Rota</th>
-                  <th className="w-32">İlerleme</th>
+                  <th>Kalkış</th>
+                  <th className="w-32">Doluluk</th>
                 </tr>
               </thead>
               <tbody>
-                {fleet.data.map((f) => (
-                  <tr key={f.code} className="border-t border-white/5">
-                    <td className="py-3 font-medium">{f.code}</td>
-                    <td className="text-white/70">{f.model}</td>
-                    <td className={colorFor(f.status)}>{f.status}</td>
-                    <td className="text-white/70">{f.route}</td>
-                    <td>
-                      <div className="h-1.5 bg-white/10 rounded-full">
-                        <div
-                          className="h-full bg-thy rounded-full"
-                          style={{ width: `${f.progress}%` }}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {fleet.data.map((f) => {
+                  const dep = f.scheduledDep
+                    ? new Date(f.scheduledDep).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
+                    : "—";
+                  const pct = f.loadPct ?? f.progress ?? 0;
+                  return (
+                    <tr key={f.code} className="border-t border-white/5 hover:bg-white/3 transition">
+                      <td className="py-3 font-medium text-white">{f.flightNo ?? f.code}</td>
+                      <td className="text-white/60 text-xs">{f.model}</td>
+                      <td className={statusColor(f.status)}>{f.status}</td>
+                      <td className="text-white/70">{f.route}</td>
+                      <td className="text-white/55 text-xs">{dep}</td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${loadColor(pct)}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-white/55 w-8 text-right">%{pct}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
