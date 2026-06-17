@@ -19,6 +19,7 @@
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:studio": "prisma studio",
     "seed": "node prisma/seed.mjs",
+    "seed:bts": "node prisma/seed_bts.mjs",
     "db:reset": "prisma migrate reset --force"
   },
   "dependencies": {
