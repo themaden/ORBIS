@@ -194,10 +194,9 @@ export const getDisruptions = () => api<DisruptionDTO[]>("/api/disruptions");
 
 export interface AnalyticsData {
   stats: { label: string; value: string; hint: string; accent: string }[];
-  bars: number[];
-  months: string[];
+  hourlyRisk: { saat: string; risk: number; gecikme: number; ucus: number }[];
+  delayTypes: { tip: string; sayi: number }[];
   models: { name: string; v: string; icon: string }[];
-  suggestions: string[];
 }
 export const getAnalytics = () => api<AnalyticsData>("/api/analytics");
 export const recommend = (id: string) =>

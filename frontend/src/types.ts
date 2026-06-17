@@ -44,10 +44,9 @@ export interface AnalyticsModel {
 
 export interface Analytics {
   stats: StatItem[];
-  bars: number[];
-  months: string[];
+  hourlyRisk: { saat: string; risk: number; gecikme: number; ucus: number }[];
+  delayTypes: { tip: string; sayi: number }[];
   models: AnalyticsModel[];
-  suggestions: string[];
 }
 
 export interface NavItem {
