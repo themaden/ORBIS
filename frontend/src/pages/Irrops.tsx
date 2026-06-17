@@ -602,7 +602,7 @@ export default function Irrops() {
             <Card title="Yapay Zeka Erken Uyarı — Sıradaki Yüksek Riskli Uçuşlar">
               <div className="space-y-1.5">
                 {risk.data.items
-                  .filter((f) => (f.delayProbability ?? 0) >= 0.8)
+                  .filter((f) => (f.delayProbability ?? 0) >= 0.45)
                   .slice(0, 6)
                   .map((f) => (
                     <div
@@ -622,7 +622,7 @@ export default function Irrops() {
                       </div>
                     </div>
                   ))}
-                {risk.data.items.filter((f) => (f.delayProbability ?? 0) >= 0.8).length === 0 && (
+                {risk.data.items.filter((f) => (f.delayProbability ?? 0) >= 0.45).length === 0 && (
                   <div className="text-sm text-white/55">Yüksek riskli sıradaki uçuş yok.</div>
                 )}
               </div>

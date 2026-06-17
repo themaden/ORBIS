@@ -44,6 +44,7 @@ async function main() {
   await prisma.rebookingProposal.deleteMany();
   await prisma.careAction.deleteMany();
   await prisma.disruption.deleteMany();
+  await prisma.predictionLog.deleteMany();
   await prisma.booking.deleteMany();
   await prisma.passenger.deleteMany();
   await prisma.flight.deleteMany();
@@ -167,17 +168,39 @@ async function main() {
     await prisma.costParam.create({ data: { key, value, note } });
   }
 
-  // Bir IRROPS olayı: ilk IST çıkışlı uçuşu iptal et
-  const target = flights.find((f) => f.depAirportId === airports["IST"].id);
-  await prisma.flight.update({
-    where: { id: target.id },
-    data: { status: "CANCELLED" },
-  });
+  // IRROPS olayları — 3 farklı tip
+  const istFlights = flights.filter((f) => f.depAirportId === airports["IST"].id);
+
+  // 1) WEATHER — iptal
+  const wTarget = istFlights[0];
+  await prisma.flight.update({ where: { id: wTarget.id }, data: { status: "CANCELLED" } });
   await prisma.disruption.create({
     data: {
-      flightId: target.id,
+      flightId: wTarget.id,
       type: "WEATHER",
       reason: "Hedef havalimanında yoğun fırtına nedeniyle iptal",
+    },
+  });
+
+  // 2) TECHNICAL — gecikme
+  const tTarget = istFlights[1] ?? flights[2];
+  await prisma.flight.update({ where: { id: tTarget.id }, data: { status: "DELAYED" } });
+  await prisma.disruption.create({
+    data: {
+      flightId: tTarget.id,
+      type: "TECHNICAL",
+      reason: "Uçak hidrolik sistemi arızası — bakım ekibi müdahale ediyor, tahmini 90 dk gecikme",
+    },
+  });
+
+  // 3) CREW — gecikme
+  const cTarget = istFlights[2] ?? flights[4];
+  await prisma.flight.update({ where: { id: cTarget.id }, data: { status: "DELAYED" } });
+  await prisma.disruption.create({
+    data: {
+      flightId: cTarget.id,
+      type: "CREW",
+      reason: "Kokpit ekibi uçuş süresi sınırı aşımı — yedek ekip organizasyonu yapılıyor",
     },
   });
 
@@ -193,7 +216,7 @@ async function main() {
   });
 
   console.log(
-    `Tamam ✓  ${Object.keys(airports).length} havalimanı, ${flights.length} uçuş, ${passengers.length} yolcu, 1 IRROPS olayı, 1 kullanıcı (ahmet / orbis123)`
+    `Tamam ✓  ${Object.keys(airports).length} havalimanı, ${flights.length} uçuş, ${passengers.length} yolcu, 3 IRROPS olayı (WEATHER/TECHNICAL/CREW), 1 kullanıcı (ahmet / orbis123)`
   );
 }
 

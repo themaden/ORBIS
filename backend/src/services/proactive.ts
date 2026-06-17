@@ -11,7 +11,7 @@ import { getWeatherSeverity } from "./weather.js";
 import { recommendForDisruption } from "./recommend.js";
 import type { Server } from "socket.io";
 
-const RISK_THRESHOLD = 0.80;       // %80+ → otomatik disruption (düşük eşik alert fatigue yaratır)
+const RISK_THRESHOLD = 0.55;       // %55+ → otomatik disruption
 const CHECK_INTERVAL_MS = 2 * 60 * 1000; // 2 dakika
 const HORIZON_MS = 6 * 3600 * 1000;      // sonraki 6 saat
 
