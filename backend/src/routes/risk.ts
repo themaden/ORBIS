@@ -19,15 +19,17 @@ riskRouter.get("/flights", async (_req: Request, res: Response) => {
     upcoming.map((f: any) => getWeatherSeverity(f.arrAirport.lat, f.arrAirport.lon))
   );
 
-  const items = upcoming.map((f: any, idx: number) => ({
-    departureHour: new Date(f.scheduledDep).getHours(),
-    loadFactor: Math.min(
-      1,
-      (f.economyBooked + f.businessBooked) / Math.max(1, f.economyCap + f.businessCap)
-    ),
-    routeHaulHours: Math.max(1, (f.scheduledArr - f.scheduledDep) / 3600000),
-    weatherSeverity: weatherFor[idx],
-  }));
+  // Küçük rastgele gürültü: gerçek üretimde anlık sensör/radar verisi değişkendir
+  const jitter = () => (Math.random() - 0.5) * 0.08;
+  const items = upcoming.map((f: any, idx: number) => {
+    const base = (f.economyBooked + f.businessBooked) / Math.max(1, f.economyCap + f.businessCap);
+    return {
+      departureHour: new Date(f.scheduledDep).getHours(),
+      loadFactor: Math.min(1, Math.max(0, base + jitter())),
+      routeHaulHours: Math.max(1, (f.scheduledArr - f.scheduledDep) / 3600000),
+      weatherSeverity: Math.min(1, Math.max(0, weatherFor[idx] + jitter())),
+    };
+  });
 
   const preds = await predictDelays(items);
   const enriched = upcoming.map((f: any, i: number) => ({

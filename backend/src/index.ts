@@ -35,6 +35,12 @@ setInterval(async () => {
   }
 }, 5000);
 
+// Her 30 saniyede risk_update → istemciler uçuş risklerini yeniler
+setInterval(() => {
+  if (io.engine.clientsCount === 0) return;
+  io.emit("risk_update", { ts: Date.now() });
+}, 30000);
+
 httpServer.listen(PORT, () => {
   console.log(`🛫 ORBIS backend + WebSocket çalışıyor → http://localhost:${PORT}`);
   startProactiveEngine(io);
