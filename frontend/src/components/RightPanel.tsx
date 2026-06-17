@@ -1,51 +1,33 @@
 // RightPanel — Yapay Zeka Kriz Tahmincisi
 // Tüm veriler backend'den: KPI risk skoru, ML gecikme tahminleri, proaktif ai_alert.
 // Mock veri yok.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getKpi, getFlightRisk } from "../api/irrops";
 import type { KpiSummary, RiskFlightItem } from "../api/irrops";
 import { getSocket } from "../api/socket";
 import { useApi } from "../hooks/useApi";
 import { Skeleton, ErrorState } from "./Skeleton";
 import { polar, arcPath as arc, valueToRatio } from "../lib/gauge";
-import type { Delay, DelayLevel } from "../types";
+import type { DelayLevel } from "../types";
 
-function riskToDelays(items: RiskFlightItem[]): Delay[] {
-  const high = items.filter((f) => (f.delayProbability ?? 0) >= 0.6);
-  const mid = items.filter(
-    (f) => (f.delayProbability ?? 0) >= 0.35 && (f.delayProbability ?? 0) < 0.6
-  );
-  const result: Delay[] = [];
-  if (high.length > 0) {
-    const avgMin =
-      high.reduce((s, f) => s + (f.expectedDelayMin ?? 0), 0) / high.length;
-    result.push({
-      region: `${high.length} yüksek riskli uçuş`,
-      level: "Yüksek" as DelayLevel,
-      extraHours: Math.round((avgMin / 60) * 10) / 10 || 1,
-    });
-  }
-  if (mid.length > 0) {
-    const avgMin =
-      mid.reduce((s, f) => s + (f.expectedDelayMin ?? 0), 0) / mid.length;
-    result.push({
-      region: `${mid.length} orta riskli uçuş`,
-      level: "Orta" as DelayLevel,
-      extraHours: Math.round((avgMin / 60) * 10) / 10 || 0.5,
-    });
-  }
-  if (result.length === 0) {
-    result.push({ region: "Tüm hatlar normal", level: "Düşük" as DelayLevel, extraHours: 0 });
-  }
-  return result;
+const bandColor = (p: number) =>
+  p >= 0.65 ? "text-thy" : p >= 0.4 ? "text-orange-400" : "text-emerald-400";
+
+const bandLabel = (p: number): DelayLevel =>
+  p >= 0.65 ? "Yüksek" : p >= 0.4 ? "Orta" : "Düşük";
+
+function flightSuggestion(f: RiskFlightItem): string {
+  const p = f.delayProbability ?? 0;
+  const min = f.expectedDelayMin ?? 0;
+  const route = f.route ?? "";
+  if (p >= 0.75)
+    return `${f.flightNo} (${route}): Yolcu bildirimi ve kapı değişikliği hazırlığı başlatın — %${Math.round(p * 100)} risk, ~${min}dk beklenti.`;
+  if (p >= 0.55)
+    return `${f.flightNo} (${route}): Bağlantılı yolcuları izleyin, alternatif uçuş kapasitesini kontrol edin — ~${min}dk tahmini gecikme.`;
+  if (p >= 0.4)
+    return `${f.flightNo} (${route}): Orta risk — yer ekibini uyarın, ikram hazırlığı yapın (~${min}dk).`;
+  return `${f.flightNo} (${route}): Düşük risk, normal operasyon izleyin.`;
 }
-
-const levelColor = (lvl: DelayLevel) =>
-  lvl === "Yüksek"
-    ? "text-thy"
-    : lvl === "Orta"
-    ? "text-orange-400"
-    : "text-emerald-400";
 
 function Gauge({ value = 75 }: { value?: number }) {
   const cx = 110;
@@ -85,42 +67,58 @@ export default function RightPanel() {
   const risk = useApi(() => getFlightRisk());
 
   const [liveRisk, setLiveRisk] = useState<number | null>(null);
-  const [liveSuggestions, setLiveSuggestions] = useState<string[]>([]);
   const [liveAt, setLiveAt] = useState<number | null>(null);
   const [lastAlert, setLastAlert] = useState<AiAlert | null>(null);
+  const [carouselIdx, setCarouselIdx] = useState(0);
+  const riskReloadRef = useRef(risk.reload);
+  riskReloadRef.current = risk.reload;
 
   useEffect(() => {
     const s = getSocket();
 
     const onKpi = (k: KpiSummary) => {
       setLiveRisk(k.riskIndex);
-      if (k.riskSuggestions?.length) setLiveSuggestions(k.riskSuggestions);
       setLiveAt(Date.now());
     };
 
     const onAiAlert = (payload: AiAlert) => {
       setLastAlert(payload);
-      // Risk listesini de tazele
-      risk.reload();
+      riskReloadRef.current();
       kpi.reload();
     };
 
+    const onRiskUpdate = () => { riskReloadRef.current(); };
+
     s.on("kpi", onKpi);
     s.on("ai_alert", onAiAlert);
+    s.on("risk_update", onRiskUpdate);
     return () => {
       s.off("kpi", onKpi);
       s.off("ai_alert", onAiAlert);
+      s.off("risk_update", onRiskUpdate);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const riskIndex = liveRisk ?? kpi.data?.riskIndex ?? 0;
-  const suggestions =
-    liveSuggestions.length > 0
-      ? liveSuggestions
-      : kpi.data?.riskSuggestions ?? [];
+  // Uçuş carousel — 4s'de bir bir sonraki yüksek-riskli uçuşa geç
+  const carouselFlights = (risk.data?.items ?? []).filter(
+    (f) => (f.delayProbability ?? 0) >= 0.3
+  );
+  useEffect(() => {
+    if (carouselFlights.length === 0) return;
+    const t = setInterval(
+      () => setCarouselIdx((i) => (i + 1) % carouselFlights.length),
+      4000
+    );
+    return () => clearInterval(t);
+  }, [carouselFlights.length]);
 
-  const delays = risk.data ? riskToDelays(risk.data.items) : [];
+  const riskIndex = liveRisk ?? kpi.data?.riskIndex ?? 0;
+
+  // Uçuş-spesifik öneriler: en riskli 4 uçuş
+  const topRiskyFlights = (risk.data?.items ?? [])
+    .filter((f) => (f.delayProbability ?? 0) >= 0.35)
+    .slice(0, 4);
 
   const liveLabel = liveAt
     ? `Canlı · WebSocket · ${new Date(liveAt).toLocaleTimeString("tr-TR")}`
@@ -183,46 +181,103 @@ export default function RightPanel() {
         </div>
       )}
 
-      {/* Tahmini Gecikmeler — ML'den gerçek veri */}
+      {/* Uçuş Risk Carousel — ML'den gerçek veriler, sırayla */}
       <div className="glass rounded-2xl p-5">
-        <h3 className="font-semibold text-[15px] mb-3">Tahmini Gecikmeler</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-[15px]">Uçuş Risk Tahmini</h3>
+          {carouselFlights.length > 0 && (
+            <span className="text-[10px] text-white/40">
+              {carouselIdx + 1} / {carouselFlights.length}
+            </span>
+          )}
+        </div>
         {risk.loading && !risk.data ? (
           <div className="space-y-2">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-4 w-1/2" />
           </div>
-        ) : (
-          <div className="space-y-1.5 text-[13.5px]">
-            {delays.map((d) => (
-              <div key={d.region}>
-                {d.region} (
-                <span className={levelColor(d.level)}>{d.level}</span>
-                {d.extraHours > 0 && (
-                  <>, <span className={levelColor(d.level)}>+{d.extraHours}sa</span></>
-                )}
-                )
+        ) : carouselFlights.length === 0 ? (
+          <p className="text-[13px] text-emerald-400">Tüm hatlar normal — risk yok.</p>
+        ) : (() => {
+          const f = carouselFlights[carouselIdx % carouselFlights.length];
+          const p = f.delayProbability ?? 0;
+          const pct = Math.round(p * 100);
+          const min = f.expectedDelayMin ?? 0;
+          const lvl = bandLabel(p);
+          return (
+            <div key={f.flightNo} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-[15px]">{f.flightNo}</span>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                  lvl === "Yüksek" ? "bg-thy/20 text-thy" :
+                  lvl === "Orta"   ? "bg-orange-500/20 text-orange-400" :
+                                     "bg-emerald-500/20 text-emerald-400"
+                }`}>{lvl}</span>
               </div>
-            ))}
-          </div>
-        )}
+              <p className="text-xs text-white/55">{f.route}</p>
+              {/* Olasılık çubuğu */}
+              <div>
+                <div className="flex justify-between text-[10px] text-white/40 mb-1">
+                  <span>Gecikme Olasılığı</span>
+                  <span className={bandColor(p)}>{pct}%</span>
+                </div>
+                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${
+                      p >= 0.65 ? "bg-thy" : p >= 0.4 ? "bg-orange-400" : "bg-emerald-400"
+                    }`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-4 text-[12px]">
+                <span className="text-white/60">Tahmini gecikme</span>
+                <span className={`font-medium ${bandColor(p)}`}>~{min} dk</span>
+              </div>
+              {/* Nokta göstergesi */}
+              <div className="flex gap-1 justify-center pt-1">
+                {carouselFlights.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCarouselIdx(i)}
+                    className={`w-1.5 h-1.5 rounded-full transition-all ${
+                      i === carouselIdx % carouselFlights.length
+                        ? "bg-thy w-3"
+                        : "bg-white/20"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
-      {/* AI Önerileri — KPI'dan gerçek veri */}
+      {/* AI Önerileri — uçuş-spesifik, gerçek ML verisinden */}
       <div className="glass rounded-2xl p-5">
         <h3 className="font-semibold text-[15px] mb-3">Yapay Zeka Önerileri</h3>
-        {kpi.loading && !kpi.data ? (
+        {risk.loading && !risk.data ? (
           <div className="space-y-2">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
           </div>
-        ) : suggestions.length > 0 ? (
-          <div className="space-y-3 text-[13px] text-white/85 leading-relaxed">
-            {suggestions.map((s, i) => (
-              <p key={i}>{s}</p>
-            ))}
+        ) : topRiskyFlights.length > 0 ? (
+          <div className="space-y-2.5">
+            {topRiskyFlights.map((f) => {
+              const p = f.delayProbability ?? 0;
+              return (
+                <div key={f.flightNo} className="flex gap-2 text-[12px] leading-relaxed">
+                  <span className={`mt-0.5 shrink-0 ${bandColor(p)}`}>
+                    {p >= 0.65 ? "⚠" : p >= 0.4 ? "▲" : "•"}
+                  </span>
+                  <p className="text-white/80">{flightSuggestion(f)}</p>
+                </div>
+              );
+            })}
           </div>
         ) : (
-          <p className="text-[13px] text-white/50">AI önerisi üretiliyor…</p>
+          <p className="text-[13px] text-emerald-400">Tüm uçuşlar normal seyirde.</p>
         )}
       </div>
     </aside>
