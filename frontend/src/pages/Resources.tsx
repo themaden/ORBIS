@@ -26,9 +26,11 @@ export default function Resources() {
   const statsRef = useRef(stats.reload);
   const fleetRef = useRef(fleet.reload);
   const usageRef = useRef(usage.reload);
-  statsRef.current = stats.reload;
-  fleetRef.current = fleet.reload;
-  usageRef.current = usage.reload;
+  useEffect(() => {
+    statsRef.current = stats.reload;
+    fleetRef.current = fleet.reload;
+    usageRef.current = usage.reload;
+  });
 
   useEffect(() => {
     const s = getSocket();

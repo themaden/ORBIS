@@ -7,6 +7,7 @@ import {
 } from "d3-geo";
 import { feature } from "topojson-client";
 import type { Feature } from "geojson";
+import { useLiveData } from "../context/LiveDataContext";
 
 const SIZE = 600;
 const CX = SIZE / 2;
@@ -104,6 +105,7 @@ const PLANE_PATH = new Path2D(
 const planes = makePlanes();
 
 export default function WorldMap() {
+  const { riskItems } = useLiveData();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const landRef = useRef<Feature[]>([]);
   const lambdaRef = useRef(20);
@@ -111,6 +113,11 @@ export default function WorldMap() {
   const lastXRef = useRef(0);
   const drawRef = useRef<() => void>(() => {});
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const highRiskCountRef = useRef(0);
+
+  useEffect(() => {
+    highRiskCountRef.current = riskItems.filter((r) => (r.delayProbability ?? 0) >= 0.6).length;
+  }, [riskItems]);
 
   // Harita verisi
   useEffect(() => {
@@ -232,16 +239,30 @@ export default function WorldMap() {
       }
 
       // uçaklar
+      let planeIdx = 0;
+      const highRisk = highRiskCountRef.current;
       for (const pl of planes) {
+        const isHighRiskPlane = planeIdx < highRisk;
+        planeIdx++;
+
         const coord: Coord = [pl[0], pl[1]];
         if (!visible(coord)) continue;
         const p = projection(coord);
         if (!p) continue;
+        
+        // Kırmızı parlama efekti
+        if (isHighRiskPlane) {
+          ctx.beginPath();
+          ctx.arc(p[0], p[1], 8, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(227,10,23,0.3)";
+          ctx.fill();
+        }
+
         ctx.save();
         ctx.translate(p[0], p[1]);
         ctx.rotate((pl[2] * Math.PI) / 180);
         ctx.scale(0.8, 0.8);
-        ctx.fillStyle = "#f5c518";
+        ctx.fillStyle = isHighRiskPlane ? "#ff5560" : "#f5c518";
         ctx.fill(PLANE_PATH);
         ctx.restore();
       }

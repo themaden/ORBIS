@@ -1,11 +1,9 @@
 // RightPanel — Yapay Zeka Kriz Tahmincisi
-// Tüm veriler backend'den: KPI risk skoru, ML gecikme tahminleri, proaktif ai_alert.
-// Mock veri yok.
-import { useEffect, useRef, useState } from "react";
-import { getKpi, getFlightRisk } from "../api/irrops";
-import type { KpiSummary, RiskFlightItem } from "../api/irrops";
-import { getSocket } from "../api/socket";
-import { useApi } from "../hooks/useApi";
+// Tüm veriler LiveDataContext'ten: KPI risk skoru, ML gecikme tahminleri, proaktif ai_alert.
+// Kendi WebSocket/API çağrısı yok — merkezi haber bandı mantığı.
+import { useEffect, useState } from "react";
+import { useLiveData } from "../context/LiveDataContext";
+import type { RiskFlightItem } from "../api/irrops";
 import { Skeleton, ErrorState } from "./Skeleton";
 import { polar, arcPath as arc, valueToRatio } from "../lib/gauge";
 import type { DelayLevel } from "../types";
@@ -54,56 +52,15 @@ function Gauge({ value = 75 }: { value?: number }) {
   );
 }
 
-interface AiAlert {
-  flightNo: string;
-  route: string;
-  expectedDelayMin: number;
-  affectedCount: number;
-  careActions: { hotel: number; meal: number; refund: number };
-}
-
 export default function RightPanel() {
-  const kpi = useApi<KpiSummary>(() => getKpi());
-  const risk = useApi(() => getFlightRisk());
+  // ─── Merkezi canlı veri ──────────────────────────────────────
+  const { kpi, riskItems, lastAlert, lastRefreshedAt, isLoading } = useLiveData();
 
-  const [liveRisk, setLiveRisk] = useState<number | null>(null);
-  const [liveAt, setLiveAt] = useState<number | null>(null);
-  const [lastAlert, setLastAlert] = useState<AiAlert | null>(null);
   const [carouselIdx, setCarouselIdx] = useState(0);
-  const riskReloadRef = useRef(risk.reload);
-  riskReloadRef.current = risk.reload;
-
-  useEffect(() => {
-    const s = getSocket();
-
-    const onKpi = (k: KpiSummary) => {
-      setLiveRisk(k.riskIndex);
-      setLiveAt(Date.now());
-    };
-
-    const onAiAlert = (payload: AiAlert) => {
-      setLastAlert(payload);
-      riskReloadRef.current();
-      kpi.reload();
-    };
-
-    const onRiskUpdate = () => { riskReloadRef.current(); };
-
-    s.on("kpi", onKpi);
-    s.on("ai_alert", onAiAlert);
-    s.on("risk_update", onRiskUpdate);
-    return () => {
-      s.off("kpi", onKpi);
-      s.off("ai_alert", onAiAlert);
-      s.off("risk_update", onRiskUpdate);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Uçuş carousel — 4s'de bir bir sonraki yüksek-riskli uçuşa geç
-  const carouselFlights = (risk.data?.items ?? []).filter(
-    (f) => (f.delayProbability ?? 0) >= 0.3
-  );
+  const carouselFlights = riskItems.filter((f) => (f.delayProbability ?? 0) >= 0.3);
+
   useEffect(() => {
     if (carouselFlights.length === 0) return;
     const t = setInterval(
@@ -113,19 +70,14 @@ export default function RightPanel() {
     return () => clearInterval(t);
   }, [carouselFlights.length]);
 
-  const riskIndex = liveRisk ?? kpi.data?.riskIndex ?? 0;
+  const riskIndex = kpi?.riskIndex ?? 0;
 
   // Uçuş-spesifik öneriler: en riskli 4 uçuş
-  const topRiskyFlights = (risk.data?.items ?? [])
+  const topRiskyFlights = riskItems
     .filter((f) => (f.delayProbability ?? 0) >= 0.35)
     .slice(0, 4);
 
-  const liveLabel = liveAt
-    ? `Canlı · WebSocket · ${new Date(liveAt).toLocaleTimeString("tr-TR")}`
-    : "Canlı · WebSocket (AI)";
-
-  const loading = kpi.loading || risk.loading;
-  const error = kpi.error && risk.error;
+  const liveLabel = `Canlı · WebSocket · ${lastRefreshedAt.toLocaleTimeString("tr-TR")}`;
 
   return (
     <aside className="w-full xl:w-[360px] h-auto xl:h-full p-5 flex flex-col gap-4 z-10 overflow-y-auto shrink-0">
@@ -133,10 +85,10 @@ export default function RightPanel() {
       <div className="glass rounded-2xl p-5">
         <h3 className="font-semibold text-[15px] mb-3">Yapay Zeka Kriz Tahmincisi</h3>
         <div className="rounded-xl bg-black/30 p-4 border border-white/5">
-          {loading && !kpi.data ? (
+          {isLoading && !kpi ? (
             <Skeleton className="h-[150px] w-full" />
-          ) : error ? (
-            <ErrorState onRetry={() => { kpi.reload(); risk.reload(); }} />
+          ) : !kpi ? (
+            <ErrorState onRetry={() => {}} />
           ) : (
             <>
               <Gauge value={riskIndex} />
@@ -191,7 +143,7 @@ export default function RightPanel() {
             </span>
           )}
         </div>
-        {risk.loading && !risk.data ? (
+        {isLoading && riskItems.length === 0 ? (
           <div className="space-y-2">
             <Skeleton className="h-5 w-3/4" />
             <Skeleton className="h-3 w-full" />
@@ -257,7 +209,7 @@ export default function RightPanel() {
       {/* AI Önerileri — uçuş-spesifik, gerçek ML verisinden */}
       <div className="glass rounded-2xl p-5">
         <h3 className="font-semibold text-[15px] mb-3">Yapay Zeka Önerileri</h3>
-        {risk.loading && !risk.data ? (
+        {isLoading && riskItems.length === 0 ? (
           <div className="space-y-2">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />

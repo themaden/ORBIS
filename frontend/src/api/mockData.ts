@@ -5,7 +5,6 @@ import type {
   FleetItem,
   StatItem,
   ResourceUsageItem,
-  Analytics,
   CommsSeed,
 } from "../types";
 
@@ -43,7 +42,7 @@ export const resourceUsage: ResourceUsageItem[] = [
   { label: "Bakım kapasitesi", v: 91, icon: "Wrench" },
 ];
 
-export const analytics: Analytics = {
+export const analytics: any = {
   stats: [
     { label: "Tahmin Doğruluğu", value: "94.2%", hint: "Son 30 gün", accent: "text-emerald-400" },
     { label: "Aktif Modeller", value: "18", hint: "3 yeni eğitildi", accent: "text-white" },

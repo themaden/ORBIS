@@ -6,6 +6,7 @@ import TopBar from "./components/TopBar";
 import Toaster from "./components/Toaster";
 import RequireAuth from "./components/RequireAuth";
 import { NAV } from "./nav";
+import { LiveDataProvider } from "./context/LiveDataContext";
 
 // Sayfalar tembel yüklenir (her sayfa ayrı bundle parçası)
 const Operations = lazy(() => import("./pages/Operations"));
@@ -71,7 +72,9 @@ export default function App() {
       <Route
         element={
           <RequireAuth>
-            <Layout />
+            <LiveDataProvider>
+              <Layout />
+            </LiveDataProvider>
           </RequireAuth>
         }
       >

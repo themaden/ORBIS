@@ -1,9 +1,9 @@
-// AIAnalytics — gerçek DB + AI verisi, mock yok
 import { useState, useEffect } from "react";
 import { Card, Stat } from "../components/Card";
 import { Skeleton, ErrorState } from "../components/Skeleton";
+import { useLiveData } from "../context/LiveDataContext";
 import {
-  getModelInfo, getAnalytics, getModelVersions,
+  getModelInfo, getModelVersions,
   getAccuracyStats, triggerRetrain, getRetrainStatus,
 } from "../api/irrops";
 import { useApi } from "../hooks/useApi";
@@ -20,7 +20,7 @@ import {
 const ICONS: Record<string, LucideIcon> = { TrendingUp, AlertTriangle, Sparkles, Cpu };
 
 export default function AIAnalytics() {
-  const analytics = useApi(() => getAnalytics());
+  const { analytics: data, isLoading, refreshAnalytics } = useLiveData();
   const model = useApi(() => getModelInfo());
   const versions = useApi(() => getModelVersions());
   const accuracy = useApi(() => getAccuracyStats());
@@ -61,7 +61,7 @@ export default function AIAnalytics() {
     }
   };
 
-  if (analytics.loading && !analytics.data) {
+  if (isLoading && !data) {
     return (
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
@@ -75,17 +75,15 @@ export default function AIAnalytics() {
     );
   }
 
-  if (analytics.error) {
+  if (!data) {
     return (
       <div className="flex-1 p-6">
         <Card>
-          <ErrorState message="Analiz verisi yüklenemedi — backend çalışıyor mu?" onRetry={analytics.reload} />
+          <ErrorState message="Analiz verisi yüklenemedi — backend çalışıyor mu?" onRetry={refreshAnalytics} />
         </Card>
       </div>
     );
   }
-
-  const data = analytics.data!;
 
   const topStats = model.data
     ? [

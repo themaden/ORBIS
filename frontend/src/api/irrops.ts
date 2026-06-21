@@ -173,6 +173,9 @@ export interface ResourceFleetItem {
   status: string;
   route: string;
   progress: number;
+  scheduledDep?: string;
+  loadPct?: number;
+  flightNo?: string;
 }
 export interface ResourceStat {
   label: string;

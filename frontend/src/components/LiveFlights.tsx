@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+// LiveFlights — Canlı Uçuş Tablosu
+// Tüm veriler LiveDataContext'ten: uçuşlar + ML risk skorları.
+// Kendi API/WebSocket çağrısı yok — merkezi haber bandı mantığı.
 import { Plane, AlertTriangle } from "lucide-react";
-import { useApi } from "../hooks/useApi";
-import { getFlights, getFlightRisk } from "../api/irrops";
-import { getSocket } from "../api/socket";
+import { useLiveData } from "../context/LiveDataContext";
 
 const statusColor: Record<string, string> = {
   PLANNED: "text-cyan-400",
@@ -14,48 +14,17 @@ const statusColor: Record<string, string> = {
 };
 
 export default function LiveFlights() {
-  const flights = useApi(() => getFlights());
-  const risk = useApi(() => getFlightRisk());
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  const riskReloadRef = useRef(risk.reload);
-  riskReloadRef.current = risk.reload;
+  // ─── Merkezi canlı veri ──────────────────────────────────────
+  const { flights, riskMap, lastRefreshedAt, isLoading } = useLiveData();
 
-  // WS olayları + 30s periyodik yenileme
-  useEffect(() => {
-    const s = getSocket();
-    const refreshAll = () => { flights.reload(); riskReloadRef.current(); setLastUpdated(new Date()); };
-    const refreshRisk = () => { riskReloadRef.current(); setLastUpdated(new Date()); };
-
-    s.on("disruption", refreshAll);
-    s.on("apply", refreshAll);
-    s.on("risk_update", refreshRisk);
-
-    const timer = setInterval(refreshRisk, 30_000);
-    return () => {
-      s.off("disruption", refreshAll);
-      s.off("apply", refreshAll);
-      s.off("risk_update", refreshRisk);
-      clearInterval(timer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const riskMap = useMemo(() => {
-    const m: Record<string, number> = {};
-    risk.data?.items.forEach((r) => {
-      if (r.delayProbability != null) m[r.id] = r.delayProbability;
-    });
-    return m;
-  }, [risk.data]);
-
-  if (flights.loading) {
+  if (isLoading && flights.length === 0) {
     return (
       <div className="glass rounded-2xl p-4 text-xs text-white/55">
         Uçuşlar yükleniyor…
       </div>
     );
   }
-  if (flights.error || !flights.data) {
+  if (!isLoading && flights.length === 0) {
     return (
       <div className="glass rounded-2xl p-4 text-xs text-white/55">
         Backend kapalıyken canlı uçuş tablosu görünmez.
@@ -68,7 +37,7 @@ export default function LiveFlights() {
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-[14px]">Canlı Uçuş Tablosu</h3>
         <span className="text-[10px] text-white/45">
-          {flights.data.length} uçuş · {lastUpdated.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          {flights.length} uçuş · {lastRefreshedAt.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
         </span>
       </div>
       <table className="w-full text-xs">
@@ -81,7 +50,7 @@ export default function LiveFlights() {
           </tr>
         </thead>
         <tbody>
-          {flights.data.slice(0, 14).map((f) => {
+          {flights.slice(0, 14).map((f) => {
             const p = riskMap[f.id];
             const isHigh = p != null && p >= 0.7;
             return (

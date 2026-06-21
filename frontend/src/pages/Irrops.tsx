@@ -1,15 +1,15 @@
-import { useEffect, useState, useRef } from "react";
-import { getSocket } from "../api/socket";
+import { useState } from "react";
 import {
   AlertTriangle, Plane, Sparkles, Hotel, Utensils, RotateCcw,
   BadgeDollarSign, Check, Bell, GitCompare, X, TrendingDown,
   Euro, Users, Clock,
 } from "lucide-react";
 import { Card } from "../components/Card";
-import { Skeleton, ErrorState } from "../components/Skeleton";
+import { Skeleton } from "../components/Skeleton";
 import { useApi } from "../hooks/useApi";
+import { useLiveData } from "../context/LiveDataContext";
 import {
-  getDisruptions, recommend, applyProposal, getFlightRisk,
+  recommend, applyProposal,
   getNotifications, getScenarios,
 } from "../api/irrops";
 import type { RecommendResult } from "../api/irrops";
@@ -379,30 +379,7 @@ function Row({
 
 // --- Ana Sayfa ---
 export default function Irrops() {
-  const { data: disruptions, loading, error, reload } = useApi(() => getDisruptions());
-  const risk = useApi(() => getFlightRisk());
-
-  const reloadRef = useRef(reload);
-  const riskReloadRef = useRef(risk.reload);
-  reloadRef.current = reload;
-  riskReloadRef.current = risk.reload;
-
-  useEffect(() => {
-    const s = getSocket();
-    const onDisruption = () => { reloadRef.current(); riskReloadRef.current(); };
-    const onApply = () => riskReloadRef.current();
-    const onRisk = () => riskReloadRef.current();
-    s.on("disruption", onDisruption);
-    s.on("apply", onApply);
-    s.on("risk_update", onRisk);
-    const timer = setInterval(() => { reloadRef.current(); riskReloadRef.current(); }, 30_000);
-    return () => {
-      s.off("disruption", onDisruption);
-      s.off("apply", onApply);
-      s.off("risk_update", onRisk);
-      clearInterval(timer);
-    };
-  }, []);
+  const { disruptions: list, riskItems, isLoading } = useLiveData();
 
   const [chosen, setChosen] = useState<string | null>(null);
   const [result, setResult] = useState<RecommendResult | null>(null);
@@ -412,7 +389,6 @@ export default function Irrops() {
   const [showNotif, setShowNotif] = useState(false);
   const [showScenarios, setShowScenarios] = useState(false);
 
-  const list = disruptions || [];
   const activeId = chosen ?? list[0]?.id ?? null;
   const active = list.find((d) => d.id === activeId) || null;
 
@@ -435,19 +411,14 @@ export default function Irrops() {
     try {
       await applyProposal(activeId, passengerId, toFlightId);
       setApplied((a) => ({ ...a, [passengerId]: toFlightNo }));
+      // Context'teki aksaklıkları ve uçuşları yenilemek için tüm state'i haberdar eden websocket apply tetikliyor zaten
     } catch {
       setRecErr("Uygulanamadı — backend/oturum kontrol edin.");
     }
   };
 
-  if (loading)
+  if (isLoading && list.length === 0)
     return <div className="flex-1 p-6"><Skeleton className="h-40 w-full" /></div>;
-  if (error)
-    return (
-      <div className="flex-1 p-6">
-        <ErrorState message="Aksaklıklar yüklenemedi. Backend (localhost:4000) çalışıyor mu?" onRetry={reload} />
-      </div>
-    );
 
   return (
     <>
@@ -610,10 +581,10 @@ export default function Irrops() {
           )}
 
           {/* Proaktif risk uyarıları */}
-          {risk.data && risk.data.aiAvailable && (
+          {riskItems.length > 0 && (
             <Card title="Yapay Zeka Erken Uyarı — Sıradaki Yüksek Riskli Uçuşlar">
               <div className="space-y-1.5">
-                {risk.data.items
+                {riskItems
                   .filter((f) => (f.delayProbability ?? 0) >= 0.45)
                   .slice(0, 6)
                   .map((f) => (
@@ -634,7 +605,7 @@ export default function Irrops() {
                       </div>
                     </div>
                   ))}
-                {risk.data.items.filter((f) => (f.delayProbability ?? 0) >= 0.45).length === 0 && (
+                {riskItems.filter((f) => (f.delayProbability ?? 0) >= 0.45).length === 0 && (
                   <div className="text-sm text-white/55">Yüksek riskli sıradaki uçuş yok.</div>
                 )}
               </div>
