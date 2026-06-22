@@ -17,11 +17,16 @@ export default function Login() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !sicil.trim() || !pw.trim()) {
-      setErr("Tüm alanları doldurun.");
+    if (!name.trim() || !sicil.trim()) {
+      setErr("Ad Soyad ve Sicil No alanlarını doldurun.");
       return;
     }
     login({ name: name.trim(), sicil: sicil.trim() });
+    navigate(from, { replace: true });
+  };
+
+  const demoLogin = () => {
+    login({ name: "Demo Kullanıcı", sicil: "DEMO-001" });
     navigate(from, { replace: true });
   };
 
@@ -83,6 +88,14 @@ export default function Login() {
           className="w-full mt-5 py-2.5 rounded-xl bg-thy hover:bg-red-600 transition text-sm font-semibold"
         >
           Giriş Yap
+        </button>
+
+        <button
+          type="button"
+          onClick={demoLogin}
+          className="w-full mt-2 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition text-sm font-medium text-white/70"
+        >
+          Demo ile Giriş
         </button>
       </form>
     </div>
