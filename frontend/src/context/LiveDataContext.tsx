@@ -118,15 +118,17 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      fetchFlights(),
-      fetchRisk(),
-      fetchKpi(),
-      fetchDisruptions(),
-      fetchAnalytics(),
-    ]).finally(() => {
-      if (!cancelled) setIsLoading(false);
-    });
+    const load = () =>
+      Promise.all([
+        fetchFlights(),
+        fetchRisk(),
+        fetchKpi(),
+        fetchDisruptions(),
+        fetchAnalytics(),
+      ]).finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    requestAnimationFrame(load);
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
