@@ -2,19 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/index.ts",
+      "src": "api/index.mjs",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "api/index.ts"
+      "dest": "api/index.mjs"
     }
-  ],
-  "build": {
-    "env": {
-      "PRISMA_GENERATE_NO_ENGINE": "true"
-    }
-  }
+  ]
 }

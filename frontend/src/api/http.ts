@@ -1,6 +1,9 @@
 // Backend (Express) ile konuşan ince HTTP katmanı.
-// Korumalı uç noktalar için demo kullanıcısıyla bir kez giriş yapıp token önbelleğe alır.
+// Backend cevap vermezse mock veriyle çalışır (Vercel demo modu).
+import { getMock } from "./mocks";
+
 const BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const FORCE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 
 let token: string | null = null;
 
@@ -26,18 +29,35 @@ interface Opts {
 }
 
 export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
+  if (FORCE_MOCK) {
+    const mock = getMock(path);
+    if (mock !== undefined) return mock as T;
+  }
+
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (opts.auth) {
     const t = await ensureToken();
     if (t) headers.Authorization = `Bearer ${t}`;
   }
-  const r = await fetch(`${BASE}${path}`, {
-    method: opts.method || "GET",
-    headers,
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-  });
-  if (!r.ok) throw new Error(`API ${r.status}`);
-  return (await r.json()) as T;
+
+  try {
+    const r = await fetch(`${BASE}${path}`, {
+      method: opts.method || "GET",
+      headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    if (!r.ok) throw new Error(`API ${r.status}`);
+    return (await r.json()) as T;
+  } catch (err) {
+    const mock = getMock(path);
+    if (mock !== undefined) {
+      if (import.meta.env.DEV) {
+        console.warn(`[mock fallback] ${path}`);
+      }
+      return mock as T;
+    }
+    throw err;
+  }
 }
 
 export const API_BASE = BASE;
