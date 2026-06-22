@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { LiveDataContext, type LiveDataState } from "./LiveDataContext";
+import { LiveDataContext, type LiveDataState } from "./liveDataDefs";
 
 export function useLiveData(): LiveDataState {
   const ctx = useContext(LiveDataContext);

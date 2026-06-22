@@ -16,7 +16,6 @@
  */
 
 import {
-  createContext,
   useEffect,
   useRef,
   useState,
@@ -36,56 +35,7 @@ import {
   type AnalyticsData,
 } from "../api/irrops";
 import { getSocket } from "../api/socket";
-
-// ────────────────────────────────────────────────────────────
-// Tipler
-// ────────────────────────────────────────────────────────────
-
-interface AiAlert {
-  disruptionId: string;
-  flightNo: string;
-  route: string;
-  delayProbability: number;
-  expectedDelayMin: number;
-  band: string;
-  reason: string;
-  affectedCount: number;
-  careActions: { hotel: number; meal: number; refund: number };
-}
-
-interface LiveDataState {
-  /** Tüm uçuşlar (DB'den) */
-  flights: FlightDTO[];
-  /** ML gecikme risk tahminleri (AI servisinden) */
-  riskItems: RiskFlightItem[];
-  /** KPI özeti (WebSocket + REST) */
-  kpi: KpiSummary | null;
-  /** Açık IRROPS aksaklıkları */
-  disruptions: DisruptionDTO[];
-  /** AI Analytics verisi */
-  analytics: AnalyticsData | null;
-  /** Son proaktif AI uyarısı */
-  lastAlert: AiAlert | null;
-  /** Son güncelleme zamanı */
-  lastRefreshedAt: Date;
-  /** Herhangi bir yükleme sürüyor mu */
-  isLoading: boolean;
-  /** Risk haritası: flightId → delayProbability */
-  riskMap: Record<string, number>;
-  /** Manuel yenileme fonksiyonları */
-  refreshFlights: () => void;
-  refreshRisk: () => void;
-  refreshDisruptions: () => void;
-  refreshAnalytics: () => void;
-  refreshAll: () => void;
-}
-
-// ────────────────────────────────────────────────────────────
-// Context
-// ────────────────────────────────────────────────────────────
-
-export const LiveDataContext = createContext<LiveDataState | null>(null);
-export type { LiveDataState };
+import { LiveDataContext, type AiAlert, type LiveDataState } from "./liveDataDefs";
 
 // ────────────────────────────────────────────────────────────
 // Provider
@@ -99,7 +49,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [lastAlert, setLastAlert] = useState<AiAlert | null>(null);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
-  const [loadingCount, setLoadingCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Ref'ler: closure'ların eski state yakalamasını önler
   const fetchFlightsRef = useRef<() => void>(() => {});
@@ -166,18 +116,20 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
 
   // ── İlk yükleme ────────────────────────────────────────────
 
-  const initialLoadDone = useRef(false);
-  if (!initialLoadDone.current) {
-    initialLoadDone.current = true;
-    setLoadingCount((c) => c + 1);
+  useEffect(() => {
+    let cancelled = false;
     Promise.all([
       fetchFlights(),
       fetchRisk(),
       fetchKpi(),
       fetchDisruptions(),
       fetchAnalytics(),
-    ]).finally(() => setLoadingCount((c) => c - 1));
-  }
+    ]).finally(() => {
+      if (!cancelled) setIsLoading(false);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── WebSocket abonelikleri ──────────────────────────────────
 
@@ -276,7 +228,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     analytics,
     lastAlert,
     lastRefreshedAt,
-    isLoading: loadingCount > 0,
+    isLoading,
     riskMap,
     refreshFlights: fetchFlights,
     refreshRisk: fetchRisk,
