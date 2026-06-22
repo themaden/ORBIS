@@ -2,7 +2,7 @@
 // Tüm veriler LiveDataContext'ten: uçuşlar + ML risk skorları.
 // Kendi API/WebSocket çağrısı yok — merkezi haber bandı mantığı.
 import { Plane, AlertTriangle } from "lucide-react";
-import { useLiveData } from "../context/LiveDataContext";
+import { useLiveData } from "../context/useLiveData";
 
 const statusColor: Record<string, string> = {
   PLANNED: "text-cyan-400",

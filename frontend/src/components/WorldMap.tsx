@@ -7,7 +7,7 @@ import {
 } from "d3-geo";
 import { feature } from "topojson-client";
 import type { Feature } from "geojson";
-import { useLiveData } from "../context/LiveDataContext";
+import { useLiveData } from "../context/useLiveData";
 
 const SIZE = 600;
 const CX = SIZE / 2;

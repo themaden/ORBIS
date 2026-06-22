@@ -17,7 +17,6 @@
 
 import {
   createContext,
-  useContext,
   useEffect,
   useRef,
   useState,
@@ -85,13 +84,8 @@ interface LiveDataState {
 // Context
 // ────────────────────────────────────────────────────────────
 
-const LiveDataContext = createContext<LiveDataState | null>(null);
-
-export function useLiveData(): LiveDataState {
-  const ctx = useContext(LiveDataContext);
-  if (!ctx) throw new Error("useLiveData must be used within <LiveDataProvider>");
-  return ctx;
-}
+export const LiveDataContext = createContext<LiveDataState | null>(null);
+export type { LiveDataState };
 
 // ────────────────────────────────────────────────────────────
 // Provider
@@ -172,7 +166,9 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
 
   // ── İlk yükleme ────────────────────────────────────────────
 
-  useEffect(() => {
+  const initialLoadDone = useRef(false);
+  if (!initialLoadDone.current) {
+    initialLoadDone.current = true;
     setLoadingCount((c) => c + 1);
     Promise.all([
       fetchFlights(),
@@ -181,7 +177,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
       fetchDisruptions(),
       fetchAnalytics(),
     ]).finally(() => setLoadingCount((c) => c - 1));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   // ── WebSocket abonelikleri ──────────────────────────────────
 
@@ -235,7 +231,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
       socket.off("ai_alert", onAiAlert);
       socket.off("risk_update", onRiskUpdate);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Periyodik polling (fallback) ────────────────────────────
 

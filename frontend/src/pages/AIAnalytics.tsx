@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, Stat } from "../components/Card";
 import { Skeleton, ErrorState } from "../components/Skeleton";
-import { useLiveData } from "../context/LiveDataContext";
+import { useLiveData } from "../context/useLiveData";
 import {
   getModelInfo, getModelVersions,
   getAccuracyStats, triggerRetrain, getRetrainStatus,

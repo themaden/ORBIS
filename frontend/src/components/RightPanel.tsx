@@ -2,7 +2,7 @@
 // Tüm veriler LiveDataContext'ten: KPI risk skoru, ML gecikme tahminleri, proaktif ai_alert.
 // Kendi WebSocket/API çağrısı yok — merkezi haber bandı mantığı.
 import { useEffect, useState } from "react";
-import { useLiveData } from "../context/LiveDataContext";
+import { useLiveData } from "../context/useLiveData";
 import type { RiskFlightItem } from "../api/irrops";
 import { Skeleton, ErrorState } from "./Skeleton";
 import { polar, arcPath as arc, valueToRatio } from "../lib/gauge";

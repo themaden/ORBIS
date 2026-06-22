@@ -7,7 +7,7 @@ import {
 import { Card } from "../components/Card";
 import { Skeleton } from "../components/Skeleton";
 import { useApi } from "../hooks/useApi";
-import { useLiveData } from "../context/LiveDataContext";
+import { useLiveData } from "../context/useLiveData";
 import {
   recommend, applyProposal,
   getNotifications, getScenarios,
