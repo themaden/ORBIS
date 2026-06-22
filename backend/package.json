@@ -12,6 +12,8 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "build": "tsc",
+    "vercel-build": "prisma generate",
+    "postinstall": "prisma generate",
     "test": "vitest run",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
